@@ -5,13 +5,16 @@ import pygame
 from game.config import load_settings
 from game.player_profile import apply_profile_equipment, load_profile
 from game.user_settings import apply_user_settings, load_user_settings
+from screens.bag_screen import BagScreen
 from screens.game_screen import GameScreen
 from screens.local_game_screen import LocalGameScreen
 from screens.menu import MenuScreen
 from screens.settings_screen import SettingsScreen
+from screens.stats_screen import StatsScreen
 from screens.store_screen import StoreScreen
 from screens.tournament_screen import TournamentScreen
 from screens.training_screen import TrainingScreen
+from screens.tutorial_screen import TutorialScreen
 
 
 def main() -> None:
@@ -21,7 +24,7 @@ def main() -> None:
     )
     settings = apply_profile_equipment(settings, load_profile())
     pygame.init()
-    pygame.display.set_caption("Boccia Battle — Versione 0.9.1")
+    pygame.display.set_caption("Boccia Battle — Versione 1.0")
     window = settings["window"]
     screen = pygame.display.set_mode(
         (window["width"], window["height"])
@@ -56,10 +59,16 @@ def main() -> None:
             current_screen = LocalGameScreen(screen, settings)
         elif action == "tournament":
             current_screen = TournamentScreen(screen, settings)
+        elif action == "tutorial":
+            current_screen = TutorialScreen(screen, settings)
         elif action == "training":
             current_screen = TrainingScreen(screen, settings)
         elif action == "store":
             current_screen = StoreScreen(screen, settings)
+        elif action == "bag":
+            current_screen = BagScreen(screen, settings)
+        elif action == "stats":
+            current_screen = StatsScreen(screen, settings)
         elif action == "settings":
             current_screen = SettingsScreen(screen, settings)
         elif action == "menu":
