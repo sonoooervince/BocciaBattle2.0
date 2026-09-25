@@ -21,7 +21,7 @@ def main() -> None:
     )
     settings = apply_profile_equipment(settings, load_profile())
     pygame.init()
-    pygame.display.set_caption("Boccia Battle — Versione 0.9")
+    pygame.display.set_caption("Boccia Battle — Versione 0.9.1")
     window = settings["window"]
     screen = pygame.display.set_mode(
         (window["width"], window["height"])
