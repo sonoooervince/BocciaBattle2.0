@@ -1,8 +1,8 @@
-# Boccia Battle — Versione 0.3
+# Boccia Battle — Versione 0.4
 
 **Boccia Battle** è un minigioco 2D di boccia paralimpica sviluppato in Python con Pygame.
 
-La Versione 0.3 trasforma il prototipo fisico in una **partita completa locale**, mantenendo la struttura modulare costruita nelle versioni precedenti.
+La Versione 0.4 mantiene la partita fisica locale e introduce il **computer come avversario giocabile**, senza creare una seconda logica di lancio.
 
 ## Cosa contiene la 0.3
 
@@ -105,14 +105,21 @@ In data/settings.json puoi modificare:
 - **v0.2-stable**: più bocce, collisioni e turni;
 - **main**: sviluppo corrente.
 
-## Prossimo obiettivo: Versione 0.4
+## IA della Versione 0.4
 
-La prossima fase introdurrà l'avversario controllato dal computer:
+Il computer osserva le bocce già presenti e il jack, valuta la situazione e sceglie una delle tre intenzioni principali: avvicinarsi al jack, bocciare la migliore boccia avversaria oppure attaccare il jack.
 
-- analisi della situazione sul campo;
-- scelta tra avvicinamento e bocciata;
-- stima di direzione e potenza;
-- errore controllato;
-- livelli di difficoltà progressivi.
+La decisione produce solamente angolo e potenza. Il tiro viene poi eseguito attraverso la stessa classe Boccia e lo stesso PhysicsEngine usati dal giocatore. Il computer non sposta mai una boccia direttamente sul bersaglio.
 
-L'obiettivo è mantenere l'IA comprensibile e credibile, senza introdurre sistemi inutilmente complessi.
+La difficoltà corrente è configurabile in `data/settings.json` con `ai_difficulty` (`easy`, `normal`, `hard`).
+
+## Versioni stabili
+
+- **v0.1-stable**: singolo tiro e fisica base;
+- **v0.2-stable**: più bocce, collisioni e turni;
+- **v0.3-stable**: partita completa locale, conservata come snapshot;
+- **main**: sviluppo corrente della Versione 0.4.
+
+## Direzione successiva
+
+Dopo la stabilizzazione della 0.4, il prossimo lavoro sarà migliorare la qualità tattica dell'IA, poi costruire il menu principale e le modalità aggiuntive senza compromettere la partita fisica esistente.
