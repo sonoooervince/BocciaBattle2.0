@@ -96,7 +96,8 @@ class MenuScreen:
         profile_text = self.font_small.render(
             (
                 f"RANK {self.profile.rank} • LV {self.profile.level} • "
-                f"XP {self.profile.xp} • GOLD {self.profile.gold}"
+                f"RATING {self.profile.rating} • XP {self.profile.xp} • "
+                f"GOLD {self.profile.gold}"
             ),
             True,
             tuple(self.colors["text_secondary"]),
