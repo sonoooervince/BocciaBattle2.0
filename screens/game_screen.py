@@ -44,6 +44,7 @@ class GameScreen:
     PENALTY_READY = "penalty_ready"
     PENALTY_ROLLING = "penalty_rolling"
     AI_THINKING_PENALTY = "ai_thinking_penalty"
+    TIMEOUT = "timeout"
 
     def __init__(self, screen: pygame.Surface, settings: dict[str, Any]) -> None:
         self.screen = screen
@@ -129,6 +130,9 @@ class GameScreen:
         self.penalty_announced: set[int] = set()
         self.clock_announced = {"red": set(), "blue": set()}
         self.between_ends_announced = False
+        self.timeout_remaining = 0.0
+        self.timeout_kind = ""
+        self.timeout_return_state: str | None = None
         self.jack = self._new_jack_at_cross()
         self.ai_think_timer = 0.0
         self.ai_plan = None
@@ -169,6 +173,19 @@ class GameScreen:
                 self._choose_colour("red")
             elif event.key == pygame.K_b:
                 self._choose_colour("blue")
+            return
+
+        if self.state == self.TIMEOUT:
+            if event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                self._resume_timeout()
+            elif event.key == pygame.K_f:
+                self.match.forfeit(self.human_key)
+                self.state = self.MATCH_RESULT
+            return
+
+        if event.key in (pygame.K_m, pygame.K_t) and self._timeout_can_be_called():
+            kind = "medical" if event.key == pygame.K_m else "technical"
+            self._start_timeout(kind)
             return
 
         if event.key == pygame.K_r and self.state != self.WARMUP:
@@ -235,6 +252,15 @@ class GameScreen:
 
     def update(self, dt: float) -> None:
         if self.state == self.COIN_CHOICE:
+            return
+
+        if self.state == self.TIMEOUT:
+            self.timeout_remaining = max(
+                0.0,
+                self.timeout_remaining - dt,
+            )
+            if self.timeout_remaining <= 0.0:
+                self._resume_timeout()
             return
 
         if self.state == self.WARMUP:
@@ -328,7 +354,14 @@ class GameScreen:
 
         self._draw_hud()
 
-        if self.state == self.COIN_CHOICE:
+        if self.state == self.TIMEOUT:
+            self.results.draw_message(
+                "TIME OUT",
+                self.timeout_kind.upper(),
+                self._clock(self.timeout_remaining),
+                "INVIO = riprendi • F = impossibile continuare / forfait",
+            )
+        elif self.state == self.COIN_CHOICE:
             self.results.draw_message(
                 "SORTEGGIO",
                 "Hai vinto",
@@ -891,6 +924,46 @@ class GameScreen:
         else:
             self._prepare_coloured_turn()
 
+    def _timeout_can_be_called(self) -> bool:
+        return self.state in {
+            self.JACK_READY,
+            self.JACK_ROLLING,
+            self.READY,
+            self.ROLLING,
+            self.AI_THINKING,
+            self.AI_THINKING_JACK,
+            self.PENALTY_READY,
+            self.PENALTY_ROLLING,
+            self.AI_THINKING_PENALTY,
+        }
+
+    def _start_timeout(self, kind: str) -> None:
+        if kind == "medical":
+            accepted = self.match.request_medical_timeout(self.human_key)
+        else:
+            accepted = self.match.request_technical_timeout(self.human_key)
+
+        if not accepted:
+            self.referee_message = (
+                f"{kind.capitalize()} time out già utilizzato"
+            )
+            return
+
+        self.timeout_return_state = self.state
+        self.timeout_kind = f"{kind} time out"
+        self.timeout_remaining = 10 * 60.0
+        self.referee_message = (
+            f"{self.timeout_kind}: cronometro di gara fermato"
+        )
+        self.state = self.TIMEOUT
+
+    def _resume_timeout(self) -> None:
+        self.referee_message = f"{self.timeout_kind} terminato"
+        self.state = self.timeout_return_state or self.READY
+        self.timeout_return_state = None
+        self.timeout_kind = ""
+        self.timeout_remaining = 0.0
+
     def _announce_countdown(
         self,
         previous: float,
@@ -1170,7 +1243,7 @@ class GameScreen:
 
         footer = (
             "Mira mouse/←→ • Potenza rotella/↑↓ • SPAZIO lancia • "
-            "P rinuncia alle bocce • ESC menu"
+            "P rinuncia • M medical TO • T technical TO • ESC menu"
         )
         self.screen.blit(
             self.font_small.render(
@@ -1182,6 +1255,8 @@ class GameScreen:
         )
 
     def _status_label(self) -> str:
+        if self.state == self.TIMEOUT:
+            return "TIME OUT"
         if self.state == self.COIN_CHOICE:
             return "SORTEGGIO"
         if self.state == self.WARMUP:
