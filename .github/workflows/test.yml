@@ -30,13 +30,16 @@ jobs:
           import pygame
           from game.config import load_settings
           from game.user_settings import apply_user_settings, default_user_settings
+          from screens.bag_screen import BagScreen
           from screens.game_screen import GameScreen
           from screens.local_game_screen import LocalGameScreen
           from screens.menu import MenuScreen
           from screens.settings_screen import SettingsScreen
+          from screens.stats_screen import StatsScreen
           from screens.store_screen import StoreScreen
           from screens.tournament_screen import TournamentScreen
           from screens.training_screen import TrainingScreen
+          from screens.tutorial_screen import TutorialScreen
 
           pygame.init()
           settings = apply_user_settings(
@@ -56,6 +59,9 @@ jobs:
               LocalGameScreen(surface, settings),
               TournamentScreen(surface, settings),
               TrainingScreen(surface, settings),
+              TutorialScreen(surface, settings),
+              BagScreen(surface, settings),
+              StatsScreen(surface, settings),
               SettingsScreen(surface, settings),
               StoreScreen(surface, settings),
           ]
