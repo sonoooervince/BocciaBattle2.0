@@ -18,12 +18,7 @@ class PhysicsReport:
 
 
 class PhysicsEngine:
-    """
-    Motore fisico 2D della Versione 0.2.
-
-    Usa sotto-passi dinamici per ridurre il rischio che una boccia molto veloce
-    attraversi un'altra boccia tra due frame.
-    """
+    """2D physics with optional open boundaries for official match play."""
 
     def __init__(
         self,
@@ -33,6 +28,7 @@ class PhysicsEngine:
         collision_restitution: float,
         stop_speed: float,
         max_substeps: int,
+        boundary_mode: str = "bounce",
     ) -> None:
         self.friction_deceleration = friction_deceleration
         self.border_restitution = border_restitution
@@ -40,6 +36,9 @@ class PhysicsEngine:
         self.collision_restitution = collision_restitution
         self.stop_speed = stop_speed
         self.max_substeps = max(1, max_substeps)
+        self.boundary_mode = (
+            "open" if boundary_mode == "open" else "bounce"
+        )
 
     def step(
         self,
@@ -51,14 +50,16 @@ class PhysicsEngine:
         balls = list(balls)
         bodies = [*balls, jack]
         report = PhysicsReport()
-
         if not bodies:
             return report
 
         max_speed = max((body.speed for body in bodies), default=0.0)
         smallest_radius = min((body.radius for body in bodies), default=10)
         safe_distance = max(4.0, smallest_radius * 0.55)
-        needed_substeps = max(1, math.ceil((max_speed * dt) / safe_distance))
+        needed_substeps = max(
+            1,
+            math.ceil((max_speed * dt) / safe_distance),
+        )
         substeps = min(self.max_substeps, needed_substeps)
         sub_dt = dt / substeps
 
@@ -91,23 +92,23 @@ class PhysicsEngine:
             return False
 
         body.position += body.velocity * dt
-        hit_border = self._resolve_border_collision(body, bounds)
+        hit_border = False
+        if self.boundary_mode == "bounce":
+            hit_border = self._resolve_border_collision(body, bounds)
         self._apply_friction(body, dt)
 
         if body.speed < self.stop_speed:
             body.velocity.update(0, 0)
-
         return hit_border
 
     def _apply_friction(self, body: Boccia | Jack, dt: float) -> None:
         speed = body.speed
         if speed <= 0.0:
             return
-
-        friction_multiplier = getattr(body, "friction_multiplier", 1.0)
+        multiplier = getattr(body, "friction_multiplier", 1.0)
         new_speed = max(
             0.0,
-            speed - self.friction_deceleration * friction_multiplier * dt,
+            speed - self.friction_deceleration * multiplier * dt,
         )
         if new_speed <= 0.0:
             body.velocity.update(0, 0)
@@ -146,7 +147,6 @@ class PhysicsEngine:
             body.velocity.y = -abs(body.velocity.y) * self.border_restitution
             body.velocity.x *= self.border_tangent_damping
             hit = True
-
         return hit
 
     def _resolve_circle_collision(
@@ -172,7 +172,6 @@ class PhysicsEngine:
         inverse_mass_second = 1.0 / second.mass
         inverse_mass_sum = inverse_mass_first + inverse_mass_second
 
-        # Correzione della sovrapposizione prima dell'impulso.
         overlap = minimum_distance - distance
         correction = normal * (overlap / inverse_mass_sum * 0.92)
         first.position -= correction * inverse_mass_first
@@ -180,8 +179,6 @@ class PhysicsEngine:
 
         relative_velocity = second.velocity - first.velocity
         velocity_along_normal = relative_velocity.dot(normal)
-
-        # Se si stanno già separando, basta correggere la sovrapposizione.
         if velocity_along_normal >= 0.0:
             return False
 
@@ -205,8 +202,6 @@ class PhysicsEngine:
             / inverse_mass_sum
         )
         impulse = normal * impulse_magnitude
-
         first.velocity -= impulse * inverse_mass_first
         second.velocity += impulse * inverse_mass_second
-
         return True

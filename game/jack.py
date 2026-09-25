@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import math
+
 import pygame
 
 
 class Jack:
-    """Pallino fisico: dalla 0.2 può essere colpito e spostato."""
+    """Physical white target ball."""
 
     def __init__(
         self,
@@ -16,6 +18,7 @@ class Jack:
         self.velocity = pygame.Vector2(0, 0)
         self.radius = radius
         self.mass = max(0.01, mass)
+        self.has_entered_playing_area = False
 
     @property
     def speed(self) -> float:
@@ -24,6 +27,22 @@ class Jack:
     @property
     def is_moving(self) -> bool:
         return self.speed > 0.0
+
+    def launch(
+        self,
+        angle_degrees: float,
+        power_percent: float,
+        min_speed: float,
+        max_speed: float,
+    ) -> None:
+        power = max(0.0, min(100.0, power_percent)) / 100.0
+        speed = min_speed + (max_speed - min_speed) * power
+        angle_radians = math.radians(angle_degrees)
+        direction = pygame.Vector2(
+            math.sin(angle_radians),
+            -math.cos(angle_radians),
+        )
+        self.velocity = direction * speed
 
     def draw(self, surface: pygame.Surface) -> None:
         center = (round(self.position.x), round(self.position.y))
