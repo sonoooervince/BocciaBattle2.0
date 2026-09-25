@@ -48,6 +48,10 @@ class TrainingScreen:
             collision_restitution=self.physics_settings["collision_restitution"],
             stop_speed=self.physics_settings["stop_speed"],
             max_substeps=self.physics_settings["max_substeps"],
+            solver_iterations=self.physics_settings.get(
+                "solver_iterations",
+                6,
+            ),
         )
 
         self.font_title = pygame.font.SysFont("arial", 34, bold=True)
