@@ -1,0 +1,37 @@
+name: boccia-battle-tests
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r requirements.txt
+      - name: Syntax check
+        run: python -m compileall -q .
+      - name: Headless smoke test
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: |
+          python - <<'PY'
+          import pygame
+          from game.config import load_settings
+          from screens.game_screen import GameScreen
+          pygame.init()
+          settings = load_settings()
+          surface = pygame.Surface((settings["window"]["width"], settings["window"]["height"]))
+          game = GameScreen(surface, settings)
+          for _ in range(5):
+              game.update(1/60)
+              game.draw()
+          pygame.quit()
+          print("Boccia Battle smoke test: OK")
+          PY
