@@ -69,7 +69,7 @@ class Boccia:
 
     def draw(self, surface: pygame.Surface, selected: bool = False) -> None:
         center = (round(self.position.x), round(self.position.y))
-        draw_radius = max(self.radius, 6)
+        draw_radius = max(self.radius, 4)
         shadow_offset = 2
         shadow = (center[0] + shadow_offset, center[1] + shadow_offset)
         pygame.draw.circle(surface, (24, 24, 24), shadow, draw_radius)
