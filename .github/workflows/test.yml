@@ -16,6 +16,15 @@ jobs:
       - run: python -m pip install -r requirements.txt
       - name: Syntax check
         run: python -m compileall -q .
+      - name: Package playable build
+        run: |
+          mkdir -p dist/BocciaBattle2.0
+          cp -r main.py game screens data requirements.txt avvia_boccia_battle.bat README.md dist/BocciaBattle2.0/
+          cd dist && zip -r BocciaBattle2.0-playable.zip BocciaBattle2.0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BocciaBattle2.0-playable
+          path: dist/BocciaBattle2.0-playable.zip
       - name: Headless smoke test
         env:
           SDL_VIDEODRIVER: dummy
