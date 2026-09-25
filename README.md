@@ -1,6 +1,12 @@
-# Boccia Battle — Versione 0.9
+# Boccia Battle — Versione 0.9.1
 
 Boccia Battle è un gioco 2D di boccia paralimpica in Python/Pygame, costruito attorno al regolamento World Boccia e a un sistema di progressione videoludico originale.
+
+## Novità 0.9.1
+
+### Collisioni complete
+
+Tutte le bocce ancora legalmente in campo partecipano sempre alle collisioni, indipendentemente da colore, proprietario, ordine di lancio o stato di movimento. Il solver usa più iterazioni per sotto-step per propagare correttamente le collisioni a catena (A → B → C → D) e più sotto-step per impedire che un tiro veloce attraversi una boccia senza contatto. Il jack usa lo stesso sistema.
 
 ## Novità 0.9
 
