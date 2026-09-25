@@ -54,6 +54,8 @@ INDIVIDUAL_SECONDS = {
 
 
 def normalize_sport_class(value: str | SportClass) -> SportClass:
+    if isinstance(value, SportClass):
+        return value
     try:
         return SportClass(str(value).upper())
     except ValueError:
@@ -64,10 +66,13 @@ def get_event_format(
     event_type: str | EventType = EventType.INDIVIDUAL,
     sport_class: str | SportClass = SportClass.BC2,
 ) -> EventFormat:
-    try:
-        event = EventType(str(event_type))
-    except ValueError:
-        event = EventType.INDIVIDUAL
+    if isinstance(event_type, EventType):
+        event = event_type
+    else:
+        try:
+            event = EventType(str(event_type))
+        except ValueError:
+            event = EventType.INDIVIDUAL
     sport = normalize_sport_class(sport_class)
 
     if event == EventType.PAIR_BC3:
@@ -138,13 +143,13 @@ RULE_SUPPORT: tuple[RuleSupport, ...] = (
     RuleSupport("9 Roles", "procedure", "SA/RO/Coach constraints are represented as rules metadata."),
     RuleSupport("10 Play", "engine", "Jack, order of play, clocks, dead balls, out-of-bounds, equidistance and scoring are enforced."),
     RuleSupport("11 Between ends", "engine", "60-second maximum interval is supported by the match state."),
-    RuleSupport("12 Disrupted end", "engine", "Snapshot/restart hooks are exposed by the match controller."),
+    RuleSupport("12 Disrupted end", "engine", "The exact digital court state is snapshotted before releases and can be restored without estimation."),
     RuleSupport("13 Tie-break", "engine", "Jack on cross, alternating first side, tie-break score excluded from regulation total."),
     RuleSupport("14 Post-match ball check", "validation", "Administrative post-match validation hook."),
     RuleSupport("15 Communication", "procedure", "No live coach/assistant communication exists in single-player gameplay."),
     RuleSupport("16 Violations", "engine", "Dead/retracted balls, penalty-ball counters, cards and forfeits are represented."),
     RuleSupport("17 Disputes", "procedure", "Referee dispute procedure is not a player-mechanical action in local play."),
     RuleSupport("18 Officials signs", "presentation", "Relevant colour/dead-ball/score states are shown in UI rather than physical gestures."),
-    RuleSupport("19 Medical timeout", "procedure", "10-minute single timeout rule is encoded as competition metadata."),
-    RuleSupport("20 Technical timeout", "procedure", "10-minute single timeout rule is encoded as competition metadata."),
+    RuleSupport("19 Medical timeout", "engine", "One 10-minute medical timeout per side is playable and pauses the match clock."),
+    RuleSupport("20 Technical timeout", "engine", "One 10-minute technical timeout per side is playable and pauses the match clock."),
 )

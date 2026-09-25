@@ -14,6 +14,10 @@ from game.boccia_profiles import (
     get_boccia_profile,
 )
 from game.brands import get_brand
+from game.disrupted_end import (
+    capture_disrupted_end,
+    restore_disrupted_end,
+)
 from game.field import Field
 from game.jack import Jack
 from game.match import MatchController
@@ -134,6 +138,10 @@ class GameScreen:
         self.timeout_kind = ""
         self.timeout_return_state: str | None = None
         self.jack = self._new_jack_at_cross()
+        self.last_legitimate_snapshot = capture_disrupted_end(
+            self.match,
+            self.jack,
+        )
         self.ai_think_timer = 0.0
         self.ai_plan = None
         self.state = (
@@ -552,6 +560,7 @@ class GameScreen:
         if self.state == self.PENALTY_READY:
             if self.penalty_ball is None:
                 return
+            self._capture_legitimate_state()
             self.penalty_ball.launch(
                 self.angle,
                 self.power,
@@ -561,6 +570,7 @@ class GameScreen:
             self.state = self.PENALTY_ROLLING
             return
         if self.state == self.JACK_READY:
+            self._capture_legitimate_state()
             self.jack.launch(
                 self.angle,
                 self.power,
@@ -571,12 +581,14 @@ class GameScreen:
             return
         if self.state != self.READY or self.active_ball is None:
             return
+        self._capture_legitimate_state()
         self._launch_coloured_ball(self.active_ball)
 
     def _launch_ai_jack(self) -> None:
         key = self.match.current_key
         if key != self.ai_key:
             return
+        self._capture_legitimate_state()
         plan = self.ai.choose_jack_shot(
             self.field.launch_point_for(key),
             self.field.cross_position,
@@ -596,6 +608,7 @@ class GameScreen:
         key = self.match.current_key
         if key != self.ai_key:
             return
+        self._capture_legitimate_state()
         plan = self.ai.choose_shot_from_launch(
             self.match,
             self.jack,
@@ -797,6 +810,7 @@ class GameScreen:
         key = self.match.current_key
         if key != self.ai_key or self.penalty_ball is None:
             return
+        self._capture_legitimate_state()
         plan = self.ai.choose_jack_shot(
             self.field.launch_point_for(key),
             self.field.cross_position,
@@ -921,6 +935,26 @@ class GameScreen:
         next_key = self.match.choose_next_turn(self.jack.position)
         if next_key is None:
             self._finish_end()
+        else:
+            self._prepare_coloured_turn()
+
+    def _capture_legitimate_state(self) -> None:
+        self.last_legitimate_snapshot = capture_disrupted_end(
+            self.match,
+            self.jack,
+        )
+
+    def restore_last_legitimate_state(self) -> None:
+        """Referee hook for rule 12 disrupted-end restoration."""
+        self.match, self.jack = restore_disrupted_end(
+            self.last_legitimate_snapshot
+        )
+        self.penalty_ball = None
+        self.last_launched_ball = None
+        self.active_ball = None
+        self.referee_message = "Disrupted end: stato precedente ripristinato"
+        if not self.match.jack_valid and not self.match.is_tiebreak:
+            self._prepare_jack_turn()
         else:
             self._prepare_coloured_turn()
 
