@@ -16,10 +16,11 @@ from game.brands import get_brand
 from game.field import Field
 from game.jack import Jack
 from game.physics import PhysicsEngine
+from game.training_drills import TRAINING_DRILLS, get_drill
 
 
 class TrainingScreen:
-    """Allenamento libero con la stessa fisica della partita."""
+    """Structured training using the same physics and official court."""
 
     READY = "ready"
     ROLLING = "rolling"
@@ -52,12 +53,13 @@ class TrainingScreen:
                 "solver_iterations",
                 6,
             ),
+            boundary_mode="open",
         )
 
         self.font_title = pygame.font.SysFont("arial", 34, bold=True)
-        self.font_big = pygame.font.SysFont("arial", 23, bold=True)
-        self.font = pygame.font.SysFont("arial", 18)
-        self.font_small = pygame.font.SysFont("arial", 14)
+        self.font_big = pygame.font.SysFont("arial", 21, bold=True)
+        self.font = pygame.font.SysFont("arial", 17)
+        self.font_small = pygame.font.SysFont("arial", 13)
 
         self.random = random.Random()
         self.selected_boccia_type = self.gameplay.get(
@@ -68,6 +70,7 @@ class TrainingScreen:
             "selected_brand",
             "handi_life_sport",
         )
+        self.aim_mode = self.gameplay.get("aim_mode", "target")
         self.ball_limit = int(self.gameplay.get("training_ball_limit", 12))
 
         self.angle = 0.0
@@ -76,20 +79,54 @@ class TrainingScreen:
         self.balls: list[Boccia] = []
         self.active_ball: Boccia | None = None
         self.last_thrown_ball: Boccia | None = None
+
         self.throws = 0
         self.last_distance_m: float | None = None
         self.best_distance_m: float | None = None
+
+        self.drill_index = 0
+        self.drill_attempts = 0
+        self.drill_successes = 0
+        self.drill_message = "Seleziona un esercizio con TAB o F1–F7."
+        self.shot_ball_collisions = 0
+        self.shot_jack_hits = 0
+        self.target_ball: Boccia | None = None
+        self.target_ball_start: pygame.Vector2 | None = None
+        self.corridor_rect: pygame.Rect | None = None
+
         self.jack = self._new_jack()
-        self._prepare_ball()
+        self._setup_drill(reset_score=True)
+
+    @property
+    def drill(self):
+        return get_drill(self.drill_index)
 
     def handle_event(self, event: pygame.event.Event) -> None:
         if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_TAB and self.state == self.READY:
+                self._change_drill(1)
+                return
+
+            function_keys = (
+                pygame.K_F1,
+                pygame.K_F2,
+                pygame.K_F3,
+                pygame.K_F4,
+                pygame.K_F5,
+                pygame.K_F6,
+                pygame.K_F7,
+            )
+            if event.key in function_keys and self.state == self.READY:
+                self.drill_index = function_keys.index(event.key)
+                self._setup_drill(reset_score=True)
+                return
+
             if event.key in (pygame.K_SPACE, pygame.K_RETURN):
                 self._launch()
             elif event.key == pygame.K_r:
-                self._reset_training()
+                self._setup_drill(reset_score=True)
             elif event.key == pygame.K_x and self.state == self.READY:
-                self._clear_balls()
+                self._setup_drill(reset_score=False)
             elif event.key == pygame.K_j and self.state == self.READY:
                 self._randomize_jack()
             elif event.key == pygame.K_c:
@@ -143,12 +180,25 @@ class TrainingScreen:
             dt,
             self.field.playable_bounds,
         )
-        del report
+        self.shot_ball_collisions += report.ball_collisions
+        self.shot_jack_hits += report.jack_hits
+
+        for ball in list(self.balls):
+            if self.field.touches_exterior_boundary(ball):
+                ball.velocity.update(0, 0)
+                self.balls.remove(ball)
+
+        if self.field.touches_exterior_boundary(self.jack):
+            self.jack.position = self.field.cross_position.copy()
+            self.jack.velocity.update(0, 0)
 
         if not self.physics.is_settled(self.balls, self.jack):
             return
 
-        if self.last_thrown_ball is not None:
+        if (
+            self.last_thrown_ball is not None
+            and self.last_thrown_ball in self.balls
+        ):
             self.last_distance_m = self._pixels_to_meters(
                 self.last_thrown_ball.position.distance_to(
                     self.jack.position
@@ -159,7 +209,10 @@ class TrainingScreen:
                 or self.last_distance_m < self.best_distance_m
             ):
                 self.best_distance_m = self.last_distance_m
+        else:
+            self.last_distance_m = None
 
+        self._evaluate_drill()
         self.state = self.READY
         self._prepare_ball()
 
@@ -167,6 +220,7 @@ class TrainingScreen:
         self.screen.fill(tuple(self.colors["background"]))
         self.field.draw(self.screen)
         self._draw_training_rings()
+        self._draw_drill_guides()
 
         for ball in self.balls:
             ball.draw(self.screen)
@@ -207,45 +261,181 @@ class TrainingScreen:
             max_speed=self.gameplay["max_launch_speed"],
         )
         self.balls.append(self.active_ball)
+
         if len(self.balls) > self.ball_limit:
-            self.balls.pop(0)
+            removable = [
+                ball for ball in self.balls
+                if ball is not self.target_ball
+            ]
+            if removable:
+                self.balls.remove(removable[0])
 
         self.last_thrown_ball = self.active_ball
         self.active_ball = None
         self.throws += 1
+        self.drill_attempts += 1
+        self.shot_ball_collisions = 0
+        self.shot_jack_hits = 0
+        self.drill_message = "Tiro in corso…"
         self.state = self.ROLLING
 
-    def _reset_training(self) -> None:
+    def _setup_drill(self, reset_score: bool) -> None:
         self.balls.clear()
         self.jack = self._new_jack()
-        self.throws = 0
+        self.last_thrown_ball = None
         self.last_distance_m = None
-        self.best_distance_m = None
+        self.target_ball = None
+        self.target_ball_start = None
+        self.corridor_rect = None
         self.angle = 0.0
         self.power = 55.0
         self.state = self.READY
+
+        if reset_score:
+            self.drill_attempts = 0
+            self.drill_successes = 0
+            self.best_distance_m = None
+
+        key = self.drill.key
+
+        if key in {"approach25", "approach50"}:
+            self._randomize_jack(prepare=False)
+
+        elif key == "hit":
+            self.jack.position = self.field.cross_position.copy()
+            offset = self.field.px_per_meter_y * 0.55
+            self.target_ball = self._static_ball(
+                pygame.Vector2(
+                    self.field.cross_position.x,
+                    self.field.cross_position.y + offset,
+                ),
+                "blue",
+            )
+            self.target_ball_start = self.target_ball.position.copy()
+            self.balls.append(self.target_ball)
+
+        elif key == "cluster":
+            self.jack.position = self.field.cross_position.copy()
+            offsets = (
+                (-8, 10, "blue"),
+                (8, 10, "red"),
+                (-7, -6, "red"),
+                (7, -6, "blue"),
+            )
+            for dx, dy, owner in offsets:
+                self.balls.append(
+                    self._static_ball(
+                        self.jack.position + pygame.Vector2(dx, dy),
+                        owner,
+                    )
+                )
+
+        elif key == "corridor":
+            self._randomize_jack(prepare=False)
+            corridor_width = self.field.px_per_meter_x * 0.85
+            left = self.field.rect.centerx - corridor_width / 2.0
+            top = self.field.rect.top + self.field.px_per_meter_y * 1.0
+            bottom = self.field.throwing_line_y - self.field.px_per_meter_y * 0.25
+            self.corridor_rect = pygame.Rect(
+                round(left),
+                round(top),
+                round(corridor_width),
+                round(bottom - top),
+            )
+
+        elif key == "penalty":
+            self.jack.position = self.field.cross_position.copy()
+
+        self.drill_message = self.drill.success_hint
         self._prepare_ball()
 
-    def _clear_balls(self) -> None:
-        self.balls.clear()
-        self.last_thrown_ball = None
-        self.last_distance_m = None
-        self._prepare_ball()
+    def _static_ball(
+        self,
+        position: pygame.Vector2,
+        owner: str,
+    ) -> Boccia:
+        color = (
+            tuple(self.colors["red_ball"])
+            if owner == "red"
+            else tuple(self.colors["blue_ball"])
+        )
+        return Boccia(
+            position,
+            radius=self.gameplay["boccia_radius"],
+            color=color,
+            owner_key=owner,
+            mass=self.gameplay["boccia_mass"],
+            boccia_type="medie",
+        )
 
-    def _randomize_jack(self) -> None:
-        margin_x = 70
+    def _evaluate_drill(self) -> None:
+        key = self.drill.key
+        ball = self.last_thrown_ball
+        success = False
+
+        if key == "free":
+            self.drill_message = "Tiro registrato. Prova una nuova soluzione."
+            return
+
+        if ball is None or ball not in self.balls:
+            self.drill_message = "FUORI CAMPO • Riprova."
+            return
+
+        distance_cm = (
+            ball.position.distance_to(self.jack.position)
+            / self.field.rect.height
+            * self.field.COURT_LENGTH_M
+            * 100.0
+        )
+
+        if key == "approach25":
+            success = distance_cm <= 25.0
+        elif key == "approach50":
+            success = distance_cm <= 50.0
+        elif key == "hit":
+            success = self.shot_ball_collisions > 0
+        elif key == "cluster":
+            success = (
+                self.shot_ball_collisions > 0
+                and distance_cm <= 50.0
+            )
+        elif key == "corridor":
+            success = (
+                self.corridor_rect is not None
+                and self.corridor_rect.collidepoint(ball.position)
+                and distance_cm <= 50.0
+            )
+        elif key == "penalty":
+            success = self.field.ball_scores_penalty(ball)
+
+        if success:
+            self.drill_successes += 1
+            self.drill_message = "SUCCESSO ✓"
+        else:
+            self.drill_message = "NON RIUSCITO • Riprova."
+
+    def _change_drill(self, direction: int) -> None:
+        self.drill_index = (
+            self.drill_index + direction
+        ) % len(TRAINING_DRILLS)
+        self._setup_drill(reset_score=True)
+
+    def _randomize_jack(self, prepare: bool = True) -> None:
+        margin_x = self.field.px_per_meter_x * 0.7
         x = self.random.uniform(
             self.field.rect.left + margin_x,
             self.field.rect.right - margin_x,
         )
-        y = self.random.uniform(
-            self.field.rect.top + 80,
-            self.field.launch_line_y - 120,
-        )
+
+        min_y = self.field.rect.top + self.field.px_per_meter_y * 2.0
+        max_y = self.field.v_line_y_at_x(x) - self.field.px_per_meter_y * 0.5
+        y = self.random.uniform(min_y, max(min_y + 1, max_y))
+
         self.jack.position.update(x, y)
         self.jack.velocity.update(0, 0)
         self.last_distance_m = None
-        self._prepare_ball()
+        if prepare:
+            self._prepare_ball()
 
     def _select_boccia_type(self, index: int) -> None:
         if self.state != self.READY or not (0 <= index < len(BOCCIA_PROFILES)):
@@ -282,12 +472,37 @@ class TrainingScreen:
             )
 
     def _aim_at_mouse(self, mouse_pos: tuple[int, int]) -> None:
-        vector = pygame.Vector2(mouse_pos) - self.field.launch_point
+        target = pygame.Vector2(mouse_pos)
+        vector = target - self.field.launch_point
         if vector.length_squared() < 4:
             return
+
         angle = math.degrees(math.atan2(vector.x, -vector.y))
         limit = self.gameplay["max_aim_angle"]
         self.angle = max(-limit, min(limit, angle))
+
+        if self.aim_mode == "target":
+            profile = get_boccia_profile(self.selected_boccia_type)
+            friction = (
+                self.physics_settings["friction_deceleration"]
+                * profile.friction_multiplier
+            )
+            required_speed = math.sqrt(
+                max(0.0, 2.0 * friction * vector.length())
+            )
+            min_speed = self.gameplay["min_launch_speed"]
+            max_speed = self.gameplay["max_launch_speed"]
+            normalized = (
+                (required_speed - min_speed)
+                / max(1.0, max_speed - min_speed)
+            )
+            self.power = max(
+                self.gameplay["min_power"],
+                min(
+                    self.gameplay["max_power"],
+                    normalized * 100.0,
+                ),
+            )
 
     def _change_angle(self, amount: float) -> None:
         if self.state != self.READY:
@@ -304,24 +519,42 @@ class TrainingScreen:
         )
 
     def _pixels_to_meters(self, pixels: float) -> float:
-        scale = (
-            self.field.rect.height
-            / self.gameplay["virtual_field_length_m"]
+        return (
+            pixels
+            / self.field.rect.height
+            * self.field.COURT_LENGTH_M
         )
-        return pixels / scale
 
     def _draw_training_rings(self) -> None:
         center = (
             round(self.jack.position.x),
             round(self.jack.position.y),
         )
-        for radius in (35, 70, 105):
+        for meters in (0.25, 0.50, 1.0):
+            radius = round(self.field.px_per_meter_y * meters)
             pygame.draw.circle(
                 self.screen,
                 (220, 230, 225),
                 center,
                 radius,
                 1,
+            )
+
+    def _draw_drill_guides(self) -> None:
+        if self.corridor_rect is not None:
+            pygame.draw.rect(
+                self.screen,
+                tuple(self.colors["aim_soft"]),
+                self.corridor_rect,
+                2,
+            )
+
+        if self.drill.key == "penalty":
+            pygame.draw.rect(
+                self.screen,
+                tuple(self.colors["accent"]),
+                self.field.target_box_rect,
+                2,
             )
 
     def _draw_aim_indicator(self) -> None:
@@ -354,75 +587,81 @@ class TrainingScreen:
 
     def _draw_hud(self) -> None:
         x = self.field.rect.right + 42
-        y = 38
+        y = 28
         width = self.window["width"] - x - 38
 
         title = self.font_title.render(
-            "ALLENAMENTO",
+            "ALLENAMENTO AVANZATO",
             True,
             tuple(self.colors["text_primary"]),
         )
         self.screen.blit(title, (x, y))
-        y += 52
+        y += 46
+
+        self._panel(x, y, width, 112)
+        self._row(x + 16, y + 10, "Esercizio", self.drill.name)
+        description = self.font_small.render(
+            self.drill.description[:54],
+            True,
+            tuple(self.colors["text_secondary"]),
+        )
+        self.screen.blit(description, (x + 16, y + 42))
+        message = self.font.render(
+            self.drill_message[:42],
+            True,
+            tuple(self.colors["accent"]),
+        )
+        self.screen.blit(message, (x + 16, y + 72))
+        y += 124
+
+        attempts = max(1, self.drill_attempts)
+        rate = (
+            0.0
+            if self.drill_attempts == 0
+            else self.drill_successes / attempts * 100.0
+        )
+        self._panel(x, y, width, 105)
+        self._row(x + 16, y + 10, "Tentativi", str(self.drill_attempts))
+        self._row(x + 16, y + 40, "Successi", str(self.drill_successes))
+        self._row(x + 16, y + 70, "Percentuale", f"{rate:.1f}%")
+        y += 117
 
         brand = get_brand(self.selected_brand)
         profile = get_boccia_profile(self.selected_boccia_type)
+        self._panel(x, y, width, 135)
+        self._row(x + 16, y + 10, "Marca", brand.display_name)
+        self._row(x + 16, y + 40, "Boccia", profile.label)
+        self._row(x + 16, y + 70, "Potenza", f"{self.power:.0f}%")
+        self._row(x + 16, y + 100, "Direzione", f"{self.angle:+.1f}°")
+        y += 147
 
-        self._panel(x, y, width, 110)
-        self._row(x + 18, y + 14, "Marca", brand.display_name)
-        self._row(x + 18, y + 46, "Boccia", profile.label)
+        self._panel(x, y, width, 105)
         self._row(
-            x + 18,
-            y + 78,
-            "Stato",
-            "PRONTO" if self.state == self.READY else "IN MOVIMENTO",
-        )
-        y += 126
-
-        self._panel(x, y, width, 142)
-        self._row(x + 18, y + 12, "Direzione", f"{self.angle:+.1f}°")
-        self._row(x + 18, y + 44, "Potenza", f"{self.power:.0f}%")
-        self._row(x + 18, y + 76, "Tiri", str(self.throws))
-        self._row(
-            x + 18,
-            y + 108,
-            "Bocce in campo",
-            f"{len(self.balls)} / {self.ball_limit}",
-        )
-        y += 158
-
-        self._panel(x, y, width, 108)
-        self._row(
-            x + 18,
-            y + 16,
-            "Ultimo tiro",
+            x + 16,
+            y + 10,
+            "Ultimo",
             self._distance_text(self.last_distance_m),
         )
         self._row(
-            x + 18,
-            y + 52,
-            "Miglior tiro",
+            x + 16,
+            y + 40,
+            "Migliore",
             self._distance_text(self.best_distance_m),
         )
-        y += 126
-
-        heading = self.font_big.render(
-            "CONTROLLI",
-            True,
-            tuple(self.colors["text_primary"]),
+        self._row(
+            x + 16,
+            y + 70,
+            "Collisioni tiro",
+            str(self.shot_ball_collisions),
         )
-        self.screen.blit(heading, (x, y))
-        y += 38
+        y += 119
 
         controls = (
-            "1–5 / Q-E  cambia tipo di boccia",
-            "Mouse / ←→  mira",
-            "Rotella / ↑↓  potenza",
-            "Click / SPAZIO  lancia",
-            "J  sposta il jack",
-            "X  pulisci le bocce",
-            "R  azzera allenamento",
-            "ESC  torna al menu",
+            "TAB / F1–F7  cambia esercizio",
+            "Mouse / ←→  mira • rotella / ↑↓ potenza",
+            "SPAZIO  lancia • 1–5 / Q-E durezza",
+            "J jack casuale • X reset campo • R reset punteggio",
+            "ESC torna al menu",
         )
         for line in controls:
             surface = self.font_small.render(
@@ -431,7 +670,7 @@ class TrainingScreen:
                 tuple(self.colors["text_secondary"]),
             )
             self.screen.blit(surface, (x, y))
-            y += 25
+            y += 23
 
     def _panel(self, x: int, y: int, width: int, height: int) -> None:
         rect = pygame.Rect(x, y, width, height)
@@ -461,7 +700,7 @@ class TrainingScreen:
             tuple(self.colors["text_primary"]),
         )
         self.screen.blit(left, (x, y))
-        self.screen.blit(right, (x + 190, y))
+        self.screen.blit(right, (x + 170, y))
 
     @staticmethod
     def _distance_text(value: float | None) -> str:
