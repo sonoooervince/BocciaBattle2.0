@@ -226,6 +226,8 @@ class GameScreen:
             blue_color=tuple(self.colors["blue_ball"]),
             max_ends=self.match_settings["ends"],
             tie_tolerance_px=self.match_settings["tie_tolerance_px"],
+            red_name="ROSSO",
+            blue_name="COMPUTER",
         )
 
     def _new_jack(self) -> Jack:
