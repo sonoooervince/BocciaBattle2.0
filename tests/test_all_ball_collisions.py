@@ -101,6 +101,33 @@ class AllBallCollisionTests(unittest.TestCase):
         self.assertGreater(jack.velocity.x, 0)
         self.assertGreaterEqual(report.jack_hits, 1)
 
+    def test_ccd_catches_single_step_tunnelling(self) -> None:
+        engine = PhysicsEngine(
+            friction_deceleration=0,
+            border_restitution=0.5,
+            border_tangent_damping=1.0,
+            collision_restitution=0.9,
+            stop_speed=0,
+            max_substeps=1,
+            boundary_mode="open",
+            solver_iterations=1,
+            continuous_collision_detection=True,
+        )
+        moving = self._ball(30, "red")
+        target = self._ball(80, "blue")
+        moving.velocity.update(1000, 0)
+        jack = Jack(pygame.Vector2(300, 200), 3)
+
+        report = engine.step(
+            [moving, target],
+            jack,
+            0.1,
+            self.bounds,
+        )
+
+        self.assertGreater(target.velocity.length(), 0)
+        self.assertGreaterEqual(report.swept_collisions, 1)
+
     def test_fast_throw_does_not_tunnel_through_ball(self) -> None:
         moving = self._ball(30, "red")
         target = self._ball(80, "blue")
