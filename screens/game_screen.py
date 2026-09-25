@@ -482,7 +482,7 @@ class GameScreen:
         )
 
         controls = self.font_small.render(
-            "Mira: mouse/←→  •  Potenza: rotella/↑↓  •  Lancia: click/SPA ZIO",
+            "Mira: mouse/←→  •  Potenza: rotella/↑↓  •  Lancia: click/SPAZIO",
             True,
             tuple(self.colors["text_secondary"]),
         )
