@@ -104,6 +104,12 @@ class GameScreen:
 
             if event.key in (pygame.K_SPACE, pygame.K_RETURN):
                 self._launch()
+            elif event.key in (pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5):
+                self._select_boccia_type(event.key - pygame.K_1)
+            elif event.key == pygame.K_q:
+                self._cycle_boccia_type(-1)
+            elif event.key == pygame.K_e:
+                self._cycle_boccia_type(1)
             elif event.key == pygame.K_c:
                 self.angle = 0.0
             elif event.key in (pygame.K_LEFT, pygame.K_a):
@@ -283,6 +289,7 @@ class GameScreen:
             color=player.color,
             owner_key=player.key,
             mass=self.gameplay["boccia_mass"],
+            boccia_type=self.selected_boccia_type,
         )
 
     def _select_boccia_type(self, index: int) -> None:
@@ -313,7 +320,7 @@ class GameScreen:
             boccia_type=self.selected_boccia_type,
         )
 
-    def _continuous_keyboard_input(self, dt: float) -> None
+    def _continuous_keyboard_input(self, dt: float) -> None:
         keys = pygame.key.get_pressed()
         angle_speed = self.gameplay["angle_keyboard_speed"]
         power_speed = self.gameplay["power_keyboard_speed"]
@@ -532,10 +539,6 @@ class GameScreen:
             f"{self.power:.0f}%" if self.state == self.READY else "—",
         )
         self._draw_power_bar(x + 18, y + 72, width - 36)
-        moving_speed = max(
-            [ball.speed for ball in self.match.all_balls] + [self.jack.speed],
-            default=0.0,
-        )
         self._draw_value_row(
             x + 18,
             y + 96,
