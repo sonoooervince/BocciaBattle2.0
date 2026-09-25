@@ -4,6 +4,8 @@ import math
 
 import pygame
 
+from game.boccia_profiles import get_boccia_profile
+
 
 class Boccia:
     """Una boccia fisica appartenente a uno dei due giocatori."""
@@ -15,6 +17,8 @@ class Boccia:
         color: tuple[int, int, int],
         owner_key: str,
         mass: float = 1.0,
+        boccia_type: str = "medie",
+        rolling_seed: int | None = None,
     ) -> None:
         self.position = pygame.Vector2(position)
         self.velocity = pygame.Vector2(0, 0)
@@ -22,6 +26,30 @@ class Boccia:
         self.color = color
         self.owner_key = owner_key
         self.mass = max(0.01, mass)
+        self.boccia_profile = get_boccia_profile(boccia_type)
+
+        # La variazione di rotolamento resta piccola e controllata:
+        # la scelta del tipo determina il comportamento medio, mentre ogni
+        # boccia può avere una lieve differenza naturale.
+        if rolling_seed is None:
+            import random
+            rolling_random = random.uniform(
+                -self.boccia_profile.rolling_variation,
+                self.boccia_profile.rolling_variation,
+            )
+        else:
+            import random
+            rng = random.Random(rolling_seed)
+            rolling_random = rng.uniform(
+                -self.boccia_profile.rolling_variation,
+                self.boccia_profile.rolling_variation,
+            )
+
+        self.friction_multiplier = max(
+            0.5,
+            self.boccia_profile.friction_multiplier * (1.0 + rolling_random),
+        )
+        self.collision_restitution = self.boccia_profile.collision_restitution
 
     @property
     def speed(self) -> float:
