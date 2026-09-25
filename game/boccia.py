@@ -6,18 +6,22 @@ import pygame
 
 
 class Boccia:
-    """Una boccia con posizione e velocità in coordinate 2D."""
+    """Una boccia fisica appartenente a uno dei due giocatori."""
 
     def __init__(
         self,
         position: pygame.Vector2,
         radius: int,
         color: tuple[int, int, int],
+        owner_key: str,
+        mass: float = 1.0,
     ) -> None:
         self.position = pygame.Vector2(position)
         self.velocity = pygame.Vector2(0, 0)
         self.radius = radius
         self.color = color
+        self.owner_key = owner_key
+        self.mass = max(0.01, mass)
 
     @property
     def speed(self) -> float:
@@ -26,10 +30,6 @@ class Boccia:
     @property
     def is_moving(self) -> bool:
         return self.speed > 0.0
-
-    def reset(self, position: pygame.Vector2) -> None:
-        self.position.update(position)
-        self.velocity.update(0, 0)
 
     def launch(
         self,
@@ -41,7 +41,7 @@ class Boccia:
         """
         Lancia la boccia.
 
-        0° = perfettamente verso l'alto.
+        0° = verso il fondo del campo.
         Valori negativi = sinistra, positivi = destra.
         """
         power = max(0.0, min(100.0, power_percent)) / 100.0
@@ -54,19 +54,29 @@ class Boccia:
         )
         self.velocity = direction * speed
 
-    def draw(self, surface: pygame.Surface) -> None:
+    def draw(self, surface: pygame.Surface, selected: bool = False) -> None:
         center = (round(self.position.x), round(self.position.y))
 
         shadow_offset = max(2, self.radius // 5)
         shadow = (center[0] + shadow_offset, center[1] + shadow_offset)
-        pygame.draw.circle(surface, (25, 25, 25), shadow, self.radius)
+        pygame.draw.circle(surface, (24, 24, 24), shadow, self.radius)
 
         pygame.draw.circle(surface, self.color, center, self.radius)
         pygame.draw.circle(surface, (245, 245, 245), center, self.radius, 2)
 
+        highlight_color = tuple(min(255, channel + 80) for channel in self.color)
         highlight_radius = max(2, self.radius // 4)
         highlight = (
             center[0] - self.radius // 3,
             center[1] - self.radius // 3,
         )
-        pygame.draw.circle(surface, (255, 170, 170), highlight, highlight_radius)
+        pygame.draw.circle(surface, highlight_color, highlight, highlight_radius)
+
+        if selected:
+            pygame.draw.circle(
+                surface,
+                (250, 215, 92),
+                center,
+                self.radius + 7,
+                2,
+            )

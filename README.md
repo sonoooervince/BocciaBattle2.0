@@ -1,95 +1,100 @@
-# Boccia Battle — Versione 0.1
+# Boccia Battle — Versione 0.2
 
-Primo prototipo giocabile in Python/Pygame per **Para Amici per le Bocce**.
+Prototipo giocabile in Python/Pygame sviluppato per **Para Amici per le Bocce**.
 
-## Cosa contiene la 0.1
+La Versione 0.2 porta il progetto dal singolo tiro di prova a un vero **end sperimentale con due colori**, più bocce sul campo e collisioni fisiche.
 
-- finestra Pygame;
-- campo 2D;
-- jack statico;
-- una boccia;
-- mira con mouse o tastiera;
-- potenza regolabile;
-- lancio con velocità iniziale reale;
-- movimento frame-independent;
-- attrito/decelerazione;
-- collisione e rimbalzo sui bordi;
-- distanza finale dal jack;
-- parametri fisici modificabili in `data/settings.json`.
+## Novità della 0.2
 
-> Nella 0.1 la boccia **non collide ancora con il jack**: questa funzione viene introdotta nella 0.2 insieme alle collisioni fra bocce.
+- 4 bocce rosse e 4 bocce blu;
+- tutte le bocce restano sul campo dopo il tiro;
+- collisioni boccia-boccia;
+- il jack è ora un corpo fisico e può essere colpito e spostato;
+- trasferimento di velocità negli urti;
+- correzione delle sovrapposizioni fra corpi;
+- sotto-passi fisici dinamici per ridurre il tunneling ad alta velocità;
+- attrito applicato a bocce e jack;
+- turni automatici;
+- dopo il primo tiro per parte, continua a giocare il colore con la boccia migliore più lontana dal jack;
+- conteggio delle bocce rimanenti;
+- indicazione provvisoria del colore più vicino;
+- distanza della migliore boccia rossa e blu;
+- contatori di collisione utili durante il test della fisica.
+
+## Importante
+
+La 0.2 **non è ancora la partita completa contro il computer**.
+
+In questa versione Rosso e Blu vengono controllati entrambi sullo stesso PC. È intenzionale: prima verifichiamo bene fisica e turni. La 0.3 aggiungerà punteggio, end multipli e risultato partita; la 0.4 introdurrà l'avversario controllato dal computer.
+
+La precedente Versione 0.1 resta conservata nel branch **v0.1-stable**.
 
 ## Avvio su Windows
 
-Apri il Prompt dei comandi o PowerShell dentro la cartella `BocciaBattle_v0_1`.
+Apri il Prompt dei comandi o PowerShell nella cartella del progetto.
 
-### Metodo consigliato: ambiente virtuale
+### Ambiente virtuale consigliato
 
-```bat
-py -m venv .venv
-.venv\Scripts\activate
-py -m pip install -r requirements.txt
-py main.py
-```
+    py -m venv .venv
+    .venv\Scripts\activate
+    py -m pip install -r requirements.txt
+    py main.py
 
-### Metodo rapido
+### Avvio rapido
 
-```bat
-py -m pip install pygame
-py main.py
-```
+    py -m pip install pygame
+    py main.py
 
 ## Controlli
 
-- **Mouse**: muovi il puntatore per mirare.
-- **Rotella mouse**: aumenta/diminuisce la potenza.
-- **Click sinistro**: lancia.
-- **Click destro**: centra la mira.
-- **← / →** oppure **A / D**: cambia direzione.
-- **↑ / ↓** oppure **W / S**: cambia potenza.
-- **Spazio / Invio**: lancia.
-- **R**: nuovo tiro dalla posizione iniziale.
-- **Esc**: esce dal gioco.
+- **Mouse**: muovi per mirare.
+- **Rotella**: modifica la potenza.
+- **Click sinistro** oppure **SPAZIO/INVIO**: lancia.
+- **Click destro** oppure **C**: centra la mira.
+- **← / →** oppure **A / D**: direzione.
+- **↑ / ↓** oppure **W / S**: potenza.
+- **R**: ricomincia l'end.
+- **Esc**: esce.
 
-## Struttura
+## Struttura attuale
 
-```text
-BocciaBattle_v0_1/
-├─ main.py
-├─ game/
-│  ├─ boccia.py
-│  ├─ config.py
-│  ├─ field.py
-│  ├─ jack.py
-│  └─ physics.py
-├─ screens/
-│  └─ game_screen.py
-├─ data/
-│  └─ settings.json
-├─ assets/
-│  ├─ images/
-│  ├─ sounds/
-│  └─ fonts/
-└─ requirements.txt
-```
+    BocciaBattle2.0/
+    ├─ main.py
+    ├─ game/
+    │  ├─ boccia.py
+    │  ├─ config.py
+    │  ├─ field.py
+    │  ├─ jack.py
+    │  ├─ match.py
+    │  ├─ physics.py
+    │  └─ player.py
+    ├─ screens/
+    │  └─ game_screen.py
+    ├─ data/
+    │  └─ settings.json
+    ├─ requirements.txt
+    └─ .gitignore
 
-## Parametri da provare
+## Parametri fisici
 
-In `data/settings.json`:
+I valori principali sono in data/settings.json.
 
-- `friction_deceleration`: più alto = la boccia si ferma prima;
-- `border_restitution`: più alto = rimbalza di più;
-- `min_launch_speed` / `max_launch_speed`: intervallo di velocità legato alla potenza;
-- `stop_speed`: soglia sotto cui la boccia viene considerata ferma.
+- friction_deceleration: resistenza del campo;
+- border_restitution: energia mantenuta negli urti col bordo;
+- collision_restitution: elasticità negli urti fra bocce e jack;
+- stop_speed: soglia sotto la quale un corpo viene fermato;
+- max_substeps: precisione massima della simulazione negli urti veloci;
+- boccia_mass / jack_mass: rapporto di massa fra boccia e pallino.
 
-Questi parametri sono volutamente esterni al codice per permettere di tarare la sensazione di gioco senza riscrivere la fisica.
+Questi valori sono volutamente esterni al codice per poter tarare la sensazione di gioco.
 
-## Passo successivo: 0.2
+## Prossimo obiettivo: Versione 0.3
 
-La prossima versione aggiungerà, senza buttare via la 0.1:
+La 0.3 costruirà sopra questa base:
 
-- più bocce contemporaneamente;
-- collisioni boccia-boccia;
-- jack dinamico e spostabile;
-- gestione elementare dei turni;
-- misura della boccia più vicina al jack.
+- calcolo dei punti a fine end;
+- più end;
+- punteggio totale;
+- schermata di risultato;
+- vittoria/sconfitta;
+- struttura della partita pronta per l'IA della 0.4.
