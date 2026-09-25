@@ -1,0 +1,45 @@
+{
+  "window": {
+    "width": 1280,
+    "height": 820,
+    "fps": 60
+  },
+  "field": {
+    "x": 54,
+    "y": 38,
+    "width": 650,
+    "height": 744
+  },
+  "gameplay": {
+    "boccia_radius": 17,
+    "jack_radius": 11,
+    "min_power": 10,
+    "max_power": 100,
+    "power_step": 5,
+    "angle_step": 2,
+    "max_aim_angle": 70,
+    "angle_keyboard_speed": 70,
+    "power_keyboard_speed": 48,
+    "min_launch_speed": 220,
+    "max_launch_speed": 900,
+    "virtual_field_length_m": 12.5
+  },
+  "physics": {
+    "friction_deceleration": 165,
+    "border_restitution": 0.62,
+    "border_tangent_damping": 0.88,
+    "stop_speed": 12
+  },
+  "colors": {
+    "background": [19, 24, 30],
+    "panel": [27, 34, 42],
+    "panel_border": [54, 66, 78],
+    "text_primary": [243, 246, 248],
+    "text_secondary": [170, 182, 193],
+    "accent": [250, 210, 90],
+    "player_ball": [206, 50, 58],
+    "aim": [250, 210, 90],
+    "aim_soft": [255, 232, 150],
+    "power": [235, 113, 64]
+  }
+}
