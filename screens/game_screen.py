@@ -1577,7 +1577,7 @@ class GameScreen:
         y += 38
         self.screen.blit(
             self.font_small.render(
-                f"VERSIONE 0.9.1 • {RULES_VERSION}",
+                f"VERSIONE 1.0 • {RULES_VERSION}",
                 True,
                 tuple(self.colors["accent"]),
             ),
@@ -1656,21 +1656,22 @@ class GameScreen:
             "Potenza",
             f"{self.power:.0f}%" if self._human_can_aim() else "—",
         )
+        ball_slot_text, set_text = self._current_ball_labels()
         self._row(
             x + 16,
             y + 70,
             "Boccia",
-            get_boccia_profile(self.selected_boccia_type).label,
+            ball_slot_text,
         )
         self._row(
             x + 16,
             y + 100,
             "Set",
-            self.selected_set_name[:28],
+            set_text[:28],
         )
         y += 148
 
-        self._panel(x, y, width, 110)
+        self._panel(x, y, width, 140)
         self._row(
             x + 16,
             y + 10,
@@ -1692,9 +1693,21 @@ class GameScreen:
             "Collisioni",
             f"{self.ball_collisions} • Jack {self.jack_hits}",
         )
+        ai_text = "—"
+        if self.ai_plan is not None:
+            ai_text = (
+                f"{self.ai_plan.decision[:20]} "
+                f"({self.ai_plan.alternatives_checked})"
+            )
+        self._row(
+            x + 16,
+            y + 100,
+            "IA piano",
+            ai_text,
+        )
 
         footer = (
-            f"Controllo {self.aim_mode.upper()} • mouse/←→ • rotella/↑↓ • "
+            f"{self.aim_mode.upper()} • 1–6/QE boccia • mouse mira • "
             "SPAZIO lancia • V replay • Z misura • P rinuncia • ESC menu"
         )
         self.screen.blit(
@@ -1704,6 +1717,36 @@ class GameScreen:
                 tuple(self.colors["text_secondary"]),
             ),
             (x, self.window["height"] - 28),
+        )
+
+    def _current_ball_labels(self) -> tuple[str, str]:
+        ball = None
+        if self.state == self.PENALTY_READY:
+            ball = self.penalty_ball
+        elif self.active_ball is not None:
+            ball = self.active_ball
+        elif (
+            self.last_launched_ball is not None
+            and self.last_launched_ball.owner_key == self.human_key
+        ):
+            ball = self.last_launched_ball
+
+        if ball is not None and ball.set_id:
+            item = get_real_set(ball.set_id)
+            slot = (
+                f"{ball.loadout_slot + 1}/6"
+                if ball.loadout_slot >= 0
+                else "Penalty"
+            )
+            hardness = ball.hardness or ball.boccia_profile.label
+            return (
+                f"{slot} • {hardness}",
+                f"{item.brand_name} • {item.model}",
+            )
+
+        return (
+            get_boccia_profile(self.selected_boccia_type).label,
+            self.selected_set_name,
         )
 
     def _status_label(self) -> str:
