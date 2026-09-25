@@ -46,7 +46,8 @@
     "border_tangent_damping": 0.88,
     "collision_restitution": 0.76,
     "stop_speed": 12,
-    "max_substeps": 12
+    "max_substeps": 32,
+    "solver_iterations": 6
   },
   "colors": {
     "background": [
