@@ -19,12 +19,16 @@ class MatchController:
         blue_color: tuple[int, int, int],
         max_ends: int = 4,
         tie_tolerance_px: float = 0.5,
+        red_name: str = "ROSSO",
+        blue_name: str = "BLU",
     ) -> None:
         self.balls_per_player = balls_per_player
         self.red_color = red_color
         self.blue_color = blue_color
         self.max_ends = max(1, max_ends)
         self.tie_tolerance_px = max(0.0, tie_tolerance_px)
+        self.red_name = red_name
+        self.blue_name = blue_name
 
         self.total_scores = {"red": 0, "blue": 0}
         self.end_history: list[EndScore] = []
@@ -201,13 +205,13 @@ class MatchController:
         self.players = {
             "red": Player(
                 "red",
-                "ROSSO",
+                self.red_name,
                 self.red_color,
                 self.balls_per_player,
             ),
             "blue": Player(
                 "blue",
-                "BLU",
+                self.blue_name,
                 self.blue_color,
                 self.balls_per_player,
             ),
