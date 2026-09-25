@@ -27,7 +27,8 @@
     "max_launch_speed": 900,
     "virtual_field_length_m": 12.5,
     "ai_difficulty": "normal",
-    "ai_think_time": 0.9
+    "ai_think_time": 0.9,
+    "ai_level": 10
   },
   "match": {
     "ends": 4,
