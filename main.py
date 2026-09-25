@@ -18,7 +18,7 @@ def main() -> None:
     )
 
     pygame.init()
-    pygame.display.set_caption("Boccia Battle — Versione 0.7")
+    pygame.display.set_caption("Boccia Battle — Versione 0.7.1")
 
     window = settings["window"]
     screen = pygame.display.set_mode(

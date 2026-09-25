@@ -153,7 +153,7 @@ class MenuScreen:
         )
 
         version = self.font_small.render(
-            "VERSIONE 0.7",
+            "VERSIONE 0.7.1",
             True,
             tuple(self.colors["accent"]),
         )

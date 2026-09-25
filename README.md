@@ -1,4 +1,4 @@
-# Boccia Battle — Versione 0.7
+# Boccia Battle — Versione 0.7.1
 
 Boccia Battle è un minigioco 2D di boccia paralimpica sviluppato in Python con Pygame.
 
@@ -109,3 +109,17 @@ Ogni push su main esegue:
 - unit test;
 - smoke test di menu, partita, torneo, allenamento e impostazioni;
 - creazione dello ZIP giocabile.
+
+
+## Campo regolamentare
+
+La Versione 0.7.1 usa il layout regolamentare World Boccia in scala:
+
+- campo: 6 m x 12,5 m;
+- area di gioco davanti ai box: 10 m;
+- 6 box di lancio da 1 m x 2,5 m;
+- V-line tracciata secondo le quote regolamentari;
+- croce centrale da 25 cm, a 3 m dai lati e 5 m dal fondo;
+- nella modalità individuale il giocatore rosso parte dal box 3 e il computer blu dal box 4.
+
+Il jack iniziale è temporaneamente posizionato sulla croce finché non verrà implementata una fase dedicata al lancio del jack.

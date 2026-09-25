@@ -242,6 +242,11 @@ class GameScreen:
             blue_name="COMPUTER",
         )
 
+    def _current_launch_point(self) -> pygame.Vector2:
+        player = self.match.current_player
+        key = "red" if player is None else player.key
+        return self.field.launch_point_for(key)
+
     def _new_jack(self) -> Jack:
         return Jack(
             self.field.jack_default_position,
@@ -287,7 +292,7 @@ class GameScreen:
 
         self.state = self.READY
         self.active_ball = Boccia(
-            self.field.launch_point,
+            self._current_launch_point(),
             radius=self.gameplay["boccia_radius"],
             color=player.color,
             owner_key=player.key,
@@ -315,7 +320,7 @@ class GameScreen:
         if player is None:
             return
         self.active_ball = Boccia(
-            self.field.launch_point,
+            self._current_launch_point(),
             radius=self.gameplay["boccia_radius"],
             color=player.color,
             owner_key=player.key,
@@ -338,7 +343,7 @@ class GameScreen:
             self._change_power(-power_speed * dt)
 
     def _aim_at_mouse(self, mouse_pos: tuple[int, int]) -> None:
-        vector = pygame.Vector2(mouse_pos) - self.field.launch_point
+        vector = pygame.Vector2(mouse_pos) - self._current_launch_point()
         if vector.length_squared() < 4:
             return
 
@@ -379,7 +384,7 @@ class GameScreen:
         plan = self.ai.choose_shot_from_launch(
             self.match,
             self.jack,
-            self.field.launch_point,
+            self._current_launch_point(),
         )
         self.ai_plan = plan
         self.angle = plan.angle
@@ -390,7 +395,7 @@ class GameScreen:
             return
 
         self.active_ball = Boccia(
-            self.field.launch_point,
+            self._current_launch_point(),
             radius=self.gameplay["boccia_radius"],
             color=player.color,
             owner_key=player.key,
@@ -443,7 +448,7 @@ class GameScreen:
             -math.cos(angle_radians),
         )
 
-        start = self.field.launch_point
+        start = self._current_launch_point()
         length = 95 + (self.power / 100.0) * 155
         end = start + direction * length
 
@@ -479,7 +484,7 @@ class GameScreen:
         y += 43
 
         version = self.font_small.render(
-            "VERSIONE 0.7 • PLAYER VS COMPUTER",
+            "VERSIONE 0.7.1 • PLAYER VS COMPUTER",
             True,
             tuple(self.colors["accent"]),
         )
