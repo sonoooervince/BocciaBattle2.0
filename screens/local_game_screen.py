@@ -9,6 +9,8 @@ from game.boccia_profiles import (
     cycle_boccia_profile,
 )
 from game.match import MatchController
+from game.player_profile import load_profile
+from game.store_catalog import approximate_profile_key
 from game.official_rules import PENALTY_BALL_SECONDS, WARMUP_SECONDS, other_side
 from screens.game_screen import GameScreen
 
@@ -28,6 +30,7 @@ class LocalGameScreen(GameScreen):
         self.human_key = "red"
         self.ai_key = "__none__"
         self.timeout_owner: str | None = None
+        self.local_profile = load_profile()
         self.state = self.COIN_CHOICE
         self.coin_toss_text = (
             "GIOCATORE 1 ha vinto il sorteggio"
@@ -133,6 +136,34 @@ class LocalGameScreen(GameScreen):
         self.referee_message = self.coin_toss_text
         self.penalty_ball = None
         self._reset_end_counters()
+
+    def _make_ball(self, key: str, ai: bool = False):
+        del ai
+        player = self.match.player(key)
+        slot_index = max(
+            0,
+            min(
+                5,
+                self.event_format.balls_per_side - player.remaining,
+            ),
+        )
+        guest = key == self.player2_key
+        spec = self.local_profile.get_ball_slot(
+            slot_index,
+            guest=guest,
+        )
+        from game.boccia import Boccia
+
+        return Boccia(
+            self.field.launch_point_for(key),
+            radius=self.gameplay["boccia_radius"],
+            color=player.color,
+            owner_key=key,
+            mass=self.gameplay["boccia_mass"],
+            boccia_type=approximate_profile_key(spec["hardness"]),
+            set_id=spec["set_id"],
+            hardness=spec["hardness"],
+        )
 
     def _prepare_jack_turn(self) -> None:
         if self.match.current_key is None:
