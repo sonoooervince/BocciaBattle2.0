@@ -76,9 +76,11 @@ Se pip non è installato:
 
     python -m ensurepip --upgrade
 
-Installa Pygame:
+Installa le dipendenze:
 
     python -m pip install -r requirements.txt
+
+Con Python 3.14 o superiore il progetto usa automaticamente pygame-ce, compatibile con lo stesso import `pygame`. Con Python fino alla 3.13 usa pygame classico.
 
 Avvia il gioco:
 
