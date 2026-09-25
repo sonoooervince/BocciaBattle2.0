@@ -33,8 +33,8 @@ class MenuScreen:
                 "tournament",
                 note="7 round • IA livello 5 → 50",
             ),
-            MenuItem("ALLENAMENTO", None, enabled=False, note="in sviluppo"),
-            MenuItem("IMPOSTAZIONI", None, enabled=False, note="in sviluppo"),
+            MenuItem("ALLENAMENTO", "training", note="tiri liberi e bersagli"),
+            MenuItem("IMPOSTAZIONI", "settings", note="marca, IA e partita"),
             MenuItem("ESCI", "quit"),
         )
         self.selected_index = 0
@@ -153,7 +153,7 @@ class MenuScreen:
         )
 
         version = self.font_small.render(
-            "VERSIONE 0.6",
+            "VERSIONE 0.7",
             True,
             tuple(self.colors["accent"]),
         )

@@ -1,0 +1,8 @@
+{
+  "preferred_brand": "handi_life_sport",
+  "selected_boccia_type": "medie",
+  "ai_level": 10,
+  "match_ends": 4,
+  "ai_think_time": 0.9,
+  "show_distance_guides": true
+}

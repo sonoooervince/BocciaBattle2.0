@@ -18,7 +18,7 @@ jobs:
       - name: Syntax check
         run: python -m compileall -q .
 
-      - name: Tournament logic tests
+      - name: Unit tests
         run: python -m unittest discover -s tests -p "test_*.py"
 
       - name: Headless smoke test
@@ -29,12 +29,18 @@ jobs:
           python - <<'PY'
           import pygame
           from game.config import load_settings
+          from game.user_settings import apply_user_settings, default_user_settings
           from screens.game_screen import GameScreen
           from screens.menu import MenuScreen
+          from screens.settings_screen import SettingsScreen
           from screens.tournament_screen import TournamentScreen
+          from screens.training_screen import TrainingScreen
 
           pygame.init()
-          settings = load_settings()
+          settings = apply_user_settings(
+              load_settings(),
+              default_user_settings(),
+          )
           surface = pygame.Surface(
               (
                   settings["window"]["width"],
@@ -46,6 +52,8 @@ jobs:
               MenuScreen(surface, settings),
               GameScreen(surface, settings),
               TournamentScreen(surface, settings),
+              TrainingScreen(surface, settings),
+              SettingsScreen(surface, settings),
           ]
           for current in screens:
               for _ in range(5):

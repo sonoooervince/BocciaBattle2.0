@@ -1,57 +1,66 @@
-# Boccia Battle — Versione 0.6
+# Boccia Battle — Versione 0.7
 
-**Boccia Battle** è un minigioco 2D di boccia paralimpica sviluppato in Python con Pygame.
+Boccia Battle è un minigioco 2D di boccia paralimpica sviluppato in Python con Pygame.
 
-La Versione 0.6 mantiene la fisica, la partita completa e l'avversario controllato dal computer, e aggiunge un vero **menu principale** e il **Torneo Settimanale giocabile**.
+La Versione 0.7 rende operative tutte le voci principali del menu: partita contro il computer, torneo, allenamento e impostazioni.
 
-## Modalità disponibili
+## Modalità
 
 ### Gioca vs Computer
 
-Partita completa contro il computer con:
-
-- 4 bocce per parte;
-- 4 end regolamentari;
-- tie-break automatico;
-- collisioni boccia-boccia e boccia-jack;
-- jack fisico e spostabile;
-- scelta fra 5 profili di boccia;
-- IA che usa lo stesso motore fisico del giocatore.
+Partita completa contro l'IA con fisica condivisa, collisioni, jack dinamico, 4 bocce per parte, end, punteggio e tie-break.
 
 ### Torneo Settimanale
 
-Il torneo è composto da 7 partite complete consecutive.
+Sette partite consecutive contro livelli IA 5, 10, 18, 27, 36, 44 e 50. Si avanza soltanto vincendo.
 
-| Round | Livello IA |
-| ---: | ---: |
-| 1 | 5 |
-| 2 | 10 |
-| 3 | 18 |
-| 4 | 27 |
-| 5 | 36 |
-| 6 | 44 |
-| 7 | 50 |
+### Allenamento
 
-Per avanzare bisogna vincere la partita del round corrente. Una sconfitta elimina dal torneo. Vincendo il Round 7 si completa il torneo.
+La modalità Allenamento permette di:
 
-Il livello dell'IA cambia automaticamente tra una partita e la successiva, ma fisica e regole restano identiche per giocatore e computer.
+- effettuare tiri illimitati;
+- mantenere più bocce sul campo e provare collisioni;
+- cambiare liberamente profilo di boccia;
+- spostare il jack in una posizione casuale con J;
+- pulire le bocce con X;
+- azzerare la sessione con R;
+- vedere distanza dell'ultimo tiro e miglior distanza;
+- confrontare i cinque profili fisici di boccia.
 
-## IA
+### Impostazioni
 
-Sono definiti **50 livelli di IA**.
+Le impostazioni sono salvate localmente in data/user_settings.json e permettono di scegliere:
 
-La difficoltà cresce attraverso:
+- produttore/marca;
+- profilo di boccia predefinito;
+- livello IA da 1 a 50;
+- numero di end da 1 a 8;
+- tempo di pensiero dell'IA;
+- visualizzazione delle linee di distanza.
 
-- precisione angolare;
-- precisione della potenza;
-- aggressività;
-- profondità tattica.
+## Marche reali
 
-L'IA non teletrasporta mai le bocce e non riceve vantaggi fisici. Decide angolo e potenza, poi il tiro viene eseguito dal normale motore fisico.
+Il catalogo usa i nomi dei produttori indicati da World Boccia come Approved Ball Suppliers per il periodo 2025–2028:
 
-## Profili di boccia
+- Apowatec
+- Boccas Balls
+- Bocha Brasil
+- Bom de Bocha Esportes
+- Handi Life Sport
+- PolySports
+- Ree Sport
+- Tutti per Tutti / Prodigy Frontier
+- Victory Sports
 
-Il giocatore può scegliere fra:
+I nomi delle marche sono riferimenti testuali. Il progetto non include loghi proprietari e non attribuisce automaticamente caratteristiche fisiche diverse a un produttore senza dati tecnici verificati.
+
+La marca e il profilo fisico sono quindi due scelte separate. Il profilo determina il comportamento nella simulazione; la marca identifica il produttore scelto dal giocatore.
+
+Fonte di riferimento per i produttori: World Boccia, Approved Ball Suppliers 2025–2028.
+
+## Profili fisici
+
+Sono disponibili:
 
 1. Super morbido
 2. Morbide
@@ -59,106 +68,42 @@ Il giocatore può scegliere fra:
 4. Dura
 5. Super duro
 
-I profili modificano in modo controllato attrito, risposta alle collisioni e piccole variazioni di rotolamento.
-
-Controlli:
-
-- **1–5**: selezione diretta;
-- **Q / E**: profilo precedente/successivo.
-
-## Controlli di tiro
-
-- **Mouse**: mira;
-- **Rotella mouse**: potenza;
-- **Click sinistro** oppure **SPAZIO/INVIO**: lancia;
-- **Click destro** oppure **C**: centra la mira;
-- **← / →** oppure **A / D**: direzione;
-- **↑ / ↓** oppure **W / S**: potenza;
-- **ESC**: torna al menu durante una partita;
-- **R**: ricomincia una partita normale.
-
-Nel Torneo Settimanale il tasto R è disabilitato per evitare di annullare liberamente un round in corso.
+I profili modificano attrito, risposta agli urti e piccole variazioni di rotolamento.
 
 ## Avvio su Windows
-
-Su Windows usa il comando python.
 
 Se pip non è installato:
 
     python -m ensurepip --upgrade
 
-Poi installa le dipendenze:
+Installa Pygame:
 
     python -m pip install -r requirements.txt
 
-Infine avvia:
+Avvia il gioco:
 
     python main.py
 
-In alternativa puoi usare:
-
-    avvia_boccia_battle.bat
-
-Il file BAT utilizza python e non richiede il comando py.
-
-## Struttura principale
-
-    BocciaBattle2.0/
-    ├─ main.py
-    ├─ game/
-    │  ├─ ai.py
-    │  ├─ boccia.py
-    │  ├─ boccia_profiles.py
-    │  ├─ competitive.py
-    │  ├─ config.py
-    │  ├─ field.py
-    │  ├─ jack.py
-    │  ├─ match.py
-    │  ├─ physics.py
-    │  ├─ player.py
-    │  ├─ scoring.py
-    │  └─ tournament.py
-    ├─ screens/
-    │  ├─ game_screen.py
-    │  ├─ menu.py
-    │  ├─ result_screen.py
-    │  └─ tournament_screen.py
-    ├─ tests/
-    │  └─ test_tournament.py
-    ├─ data/
-    │  └─ settings.json
-    └─ requirements.txt
+Oppure usa avvia_boccia_battle.bat.
 
 ## Versioni stabili
 
-- v0.1-stable: fisica base;
-- v0.2-stable: collisioni e turni;
-- v0.3-stable: partita completa locale;
-- v0.5-stable: IA, 50 livelli e profili di boccia;
-- main: Versione 0.6.
+- v0.1-stable: fisica base
+- v0.2-stable: collisioni e turni
+- v0.3-stable: partita locale completa
+- v0.5-stable: IA e profili di boccia
+- v0.6-stable: menu e Torneo Settimanale
+- main: sviluppo corrente 0.7
 
-## Matchmaking
+## Nota sul matchmaking
 
-game/competitive.py contiene soltanto la base logica per un futuro matchmaking.
-
-La soglia dei 50 giocatori umani online e il fallback verso i bot **non costituiscono ancora un sistema multiplayer**. Non sono presenti server, account, lobby o connessioni online nella versione attuale.
+game/competitive.py resta una struttura preparatoria. Il multiplayer online non è ancora implementato: non sono presenti server, account o lobby.
 
 ## Controlli automatici
 
-Ad ogni push su main, GitHub Actions esegue:
+Ogni push su main esegue:
 
 - controllo sintattico;
-- test della progressione del Torneo Settimanale;
-- smoke test headless di menu, partita e torneo;
-- creazione dell'artefatto ZIP giocabile.
-
-## Prossimi passi
-
-Le aree successive da sviluppare sono:
-
-- tattica più sofisticata per i livelli IA più alti;
-- schermata impostazioni;
-- modalità allenamento;
-- rifinitura grafica e audio;
-- salvataggio locale dei progressi;
-- solo in una fase futura, eventuale multiplayer online.
+- unit test;
+- smoke test di menu, partita, torneo, allenamento e impostazioni;
+- creazione dello ZIP giocabile.

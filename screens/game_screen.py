@@ -12,6 +12,7 @@ from game.match import MatchController
 from game.physics import PhysicsEngine
 from game.ai import BocciaAI
 from game.boccia_profiles import BOCCIA_PROFILES, cycle_boccia_profile, get_boccia_profile
+from game.brands import get_brand
 from screens.result_screen import ResultScreen
 
 
@@ -67,6 +68,8 @@ class GameScreen:
         self.ai_think_timer = 0.0
         self.ai_plan = None
         self.selected_boccia_type = self.gameplay.get("selected_boccia_type", "medie")
+        self.selected_brand = self.gameplay.get("selected_brand", "handi_life_sport")
+        self.show_distance_guides = self.gameplay.get("show_distance_guides", True)
 
         self.angle = 0.0
         self.power = 55.0
@@ -416,6 +419,8 @@ class GameScreen:
         return self._pixels_to_meters(distance)
 
     def _draw_best_distance_lines(self) -> None:
+        if not self.show_distance_guides:
+            return
         for key in self.match.PLAYER_ORDER:
             ball = self.match.best_ball(key, self.jack.position)
             if ball is None:
@@ -474,7 +479,7 @@ class GameScreen:
         y += 43
 
         version = self.font_small.render(
-            "VERSIONE 0.6 • PLAYER VS COMPUTER",
+            "VERSIONE 0.7 • PLAYER VS COMPUTER",
             True,
             tuple(self.colors["accent"]),
         )
@@ -525,27 +530,33 @@ class GameScreen:
         self._draw_team_row(x + 18, y + 76, blue)
         y += 126
 
-        self._draw_panel(x, y, width, 126)
+        self._draw_panel(x, y, width, 154)
         self._draw_value_row(
             x + 18,
-            y + 10,
+            y + 8,
             "Direzione",
             f"{self.angle:+.1f}°" if self.state == self.READY else "—",
         )
         self._draw_value_row(
             x + 18,
-            y + 40,
+            y + 36,
             "Potenza",
             f"{self.power:.0f}%" if self.state == self.READY else "—",
         )
-        self._draw_power_bar(x + 18, y + 72, width - 36)
+        self._draw_power_bar(x + 18, y + 64, width - 36)
         self._draw_value_row(
             x + 18,
-            y + 96,
+            y + 88,
             "Boccia",
             get_boccia_profile(self.selected_boccia_type).label,
         )
-        y += 140
+        self._draw_value_row(
+            x + 18,
+            y + 116,
+            "Marca",
+            get_brand(self.selected_brand).display_name,
+        )
+        y += 166
 
         self._draw_panel(x, y, width, 132)
         self._draw_value_row(
