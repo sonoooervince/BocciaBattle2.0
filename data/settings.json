@@ -27,6 +27,10 @@
     "max_launch_speed": 900,
     "virtual_field_length_m": 12.5
   },
+  "match": {
+    "ends": 4,
+    "tie_tolerance_px": 0.5
+  },
   "physics": {
     "friction_deceleration": 165,
     "border_restitution": 0.54,

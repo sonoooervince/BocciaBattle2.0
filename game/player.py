@@ -7,7 +7,7 @@ from game.boccia import Boccia
 
 @dataclass
 class Player:
-    """Stato minimo di un giocatore nella Versione 0.2."""
+    """Stato di un giocatore durante l'end corrente."""
 
     key: str
     name: str

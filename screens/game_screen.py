@@ -10,12 +10,14 @@ from game.field import Field
 from game.jack import Jack
 from game.match import MatchController
 from game.physics import PhysicsEngine
+from screens.result_screen import ResultScreen
 
 
 class GameScreen:
     READY = "ready"
     ROLLING = "rolling"
-    END = "end"
+    END_RESULT = "end_result"
+    MATCH_RESULT = "match_result"
 
     def __init__(self, screen: pygame.Surface, settings: dict[str, Any]) -> None:
         self.screen = screen
@@ -23,12 +25,13 @@ class GameScreen:
         self.window = settings["window"]
         self.gameplay = settings["gameplay"]
         self.physics_settings = settings["physics"]
+        self.match_settings = settings["match"]
         self.colors = settings["colors"]
 
         self.font_title = pygame.font.SysFont("arial", 34, bold=True)
-        self.font_big = pygame.font.SysFont("arial", 25, bold=True)
-        self.font = pygame.font.SysFont("arial", 19)
-        self.font_small = pygame.font.SysFont("arial", 15)
+        self.font_big = pygame.font.SysFont("arial", 24, bold=True)
+        self.font = pygame.font.SysFont("arial", 18)
+        self.font_small = pygame.font.SysFont("arial", 14)
 
         field_cfg = settings["field"]
         self.field = Field(
@@ -49,6 +52,9 @@ class GameScreen:
             max_substeps=self.physics_settings["max_substeps"],
         )
 
+        self.results = ResultScreen(screen, self.colors)
+        self.match = self._new_match_controller()
+
         self.angle = 0.0
         self.power = 55.0
         self.active_ball: Boccia | None = None
@@ -56,15 +62,32 @@ class GameScreen:
         self.border_hits = 0
         self.ball_collisions = 0
         self.jack_hits = 0
+        self.jack = self._new_jack()
 
-        self._restart_end()
+        self._prepare_turn()
 
     def handle_event(self, event: pygame.event.Event) -> None:
         if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_r:
+                self._restart_match()
+                return
+
+            if self.state == self.END_RESULT:
+                if event.key in (
+                    pygame.K_RETURN,
+                    pygame.K_SPACE,
+                    pygame.K_n,
+                ):
+                    self._advance_end()
+                return
+
+            if self.state == self.MATCH_RESULT:
+                if event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    self._restart_match()
+                return
+
             if event.key in (pygame.K_SPACE, pygame.K_RETURN):
                 self._launch()
-            elif event.key == pygame.K_r:
-                self._restart_end()
             elif event.key == pygame.K_c:
                 self.angle = 0.0
             elif event.key in (pygame.K_LEFT, pygame.K_a):
@@ -121,14 +144,23 @@ class GameScreen:
         self.ball_collisions += report.ball_collisions
         self.jack_hits += report.jack_hits
 
-        if self.physics.is_settled(self.match.all_balls, self.jack):
-            self.active_ball = None
-            next_key = self.match.choose_next_turn(self.jack.position)
-            if next_key is None:
-                self.state = self.END
-            else:
-                self.state = self.READY
-                self._prepare_turn()
+        if not self.physics.is_settled(self.match.all_balls, self.jack):
+            return
+
+        self.active_ball = None
+        next_key = self.match.choose_next_turn(self.jack.position)
+
+        if next_key is not None:
+            self.state = self.READY
+            self._prepare_turn()
+            return
+
+        self.match.finish_end(self.jack.position)
+        self.state = (
+            self.MATCH_RESULT
+            if self.match.match_over
+            else self.END_RESULT
+        )
 
     def draw(self) -> None:
         self.screen.fill(tuple(self.colors["background"]))
@@ -146,28 +178,68 @@ class GameScreen:
 
         self._draw_hud()
 
-    def _restart_end(self) -> None:
-        self.jack = Jack(
+        if self.state == self.END_RESULT and self.match.last_end_score is not None:
+            winner_name = (
+                self.match.player(self.match.last_end_score.winner).name
+                if self.match.last_end_score.winner is not None
+                else None
+            )
+            self.results.draw_end_result(
+                end_number=self.match.current_end,
+                score=self.match.last_end_score,
+                total_scores=self.match.total_scores,
+                winner_name=winner_name,
+                is_tiebreak=self.match.is_tiebreak,
+            )
+
+        elif self.state == self.MATCH_RESULT:
+            winner_key = self.match.winner
+            if winner_key is not None:
+                self.results.draw_match_result(
+                    total_scores=self.match.total_scores,
+                    winner_name=self.match.player(winner_key).name,
+                    total_ends=self.match.current_end,
+                )
+
+    def _new_match_controller(self) -> MatchController:
+        return MatchController(
+            balls_per_player=self.gameplay["balls_per_player"],
+            red_color=tuple(self.colors["red_ball"]),
+            blue_color=tuple(self.colors["blue_ball"]),
+            max_ends=self.match_settings["ends"],
+            tie_tolerance_px=self.match_settings["tie_tolerance_px"],
+        )
+
+    def _new_jack(self) -> Jack:
+        return Jack(
             self.field.jack_default_position,
             radius=self.gameplay["jack_radius"],
             mass=self.gameplay["jack_mass"],
         )
-        self.match = MatchController(
-            balls_per_player=self.gameplay["balls_per_player"],
-            red_color=tuple(self.colors["red_ball"]),
-            blue_color=tuple(self.colors["blue_ball"]),
-        )
+
+    def _restart_match(self) -> None:
+        self.match = self._new_match_controller()
+        self.jack = self._new_jack()
         self.state = self.READY
+        self._reset_end_counters()
+        self._prepare_turn()
+
+    def _advance_end(self) -> None:
+        self.match.advance_end()
+        self.jack = self._new_jack()
+        self.state = self.READY
+        self._reset_end_counters()
+        self._prepare_turn()
+
+    def _reset_end_counters(self) -> None:
         self.border_hits = 0
         self.ball_collisions = 0
         self.jack_hits = 0
-        self._prepare_turn()
 
     def _prepare_turn(self) -> None:
         player = self.match.current_player
         if player is None:
             self.active_ball = None
-            self.state = self.END
             return
 
         self.angle = 0.0
@@ -288,7 +360,7 @@ class GameScreen:
 
     def _draw_hud(self) -> None:
         x = self.field.rect.right + 42
-        y = 34
+        y = 30
         width = self.window["width"] - x - 38
 
         title = self.font_title.render(
@@ -297,132 +369,141 @@ class GameScreen:
             tuple(self.colors["text_primary"]),
         )
         self.screen.blit(title, (x, y))
-        y += 45
+        y += 43
 
         version = self.font_small.render(
-            "VERSIONE 0.2 • COLLISIONI E TURNI",
+            "VERSIONE 0.3 • PARTITA ED END",
             True,
             tuple(self.colors["accent"]),
         )
         self.screen.blit(version, (x, y))
-        y += 38
+        y += 34
 
-        self._draw_panel(x, y, width, 82)
+        self._draw_panel(x, y, width, 74)
         status = self.font_big.render(
             self._status_label(),
             True,
             tuple(self.colors["text_primary"]),
         )
-        self.screen.blit(status, (x + 18, y + 12))
+        self.screen.blit(status, (x + 18, y + 10))
         hint = self.font_small.render(
             self._status_hint(),
             True,
             tuple(self.colors["text_secondary"]),
         )
-        self.screen.blit(hint, (x + 18, y + 49))
-        y += 98
+        self.screen.blit(hint, (x + 18, y + 43))
+        y += 88
 
-        self._draw_panel(x, y, width, 132)
+        self._draw_panel(x, y, width, 96)
+        end_text = (
+            f"TIE-BREAK {self.match.current_end - self.match.max_ends}"
+            if self.match.is_tiebreak
+            else f"{self.match.current_end} / {self.match.max_ends}"
+        )
+        self._draw_value_row(x + 18, y + 12, "End", end_text)
+        self._draw_value_row(
+            x + 18,
+            y + 46,
+            "Punteggio",
+            (
+                f"ROSSO {self.match.total_scores['red']}  -  "
+                f"{self.match.total_scores['blue']} BLU"
+            ),
+        )
+        y += 110
+
+        self._draw_panel(x, y, width, 112)
         current = self.match.current_player
-        turn_text = "END TERMINATO" if current is None else current.name
-        self._draw_value_row(x + 18, y + 14, "Turno", turn_text)
+        turn_text = "—" if current is None else current.name
+        self._draw_value_row(x + 18, y + 11, "Turno", turn_text)
 
         red = self.match.player("red")
         blue = self.match.player("blue")
-        self._draw_team_row(x + 18, y + 49, red)
-        self._draw_team_row(x + 18, y + 82, blue)
-        y += 148
+        self._draw_team_row(x + 18, y + 44, red)
+        self._draw_team_row(x + 18, y + 76, blue)
+        y += 126
 
-        self._draw_panel(x, y, width, 145)
+        self._draw_panel(x, y, width, 126)
         self._draw_value_row(
             x + 18,
-            y + 14,
+            y + 10,
             "Direzione",
             f"{self.angle:+.1f}°" if self.state == self.READY else "—",
         )
         self._draw_value_row(
             x + 18,
-            y + 46,
+            y + 40,
             "Potenza",
             f"{self.power:.0f}%" if self.state == self.READY else "—",
         )
-        self._draw_power_bar(x + 18, y + 82, width - 36)
+        self._draw_power_bar(x + 18, y + 72, width - 36)
         moving_speed = max(
             [ball.speed for ball in self.match.all_balls] + [self.jack.speed],
             default=0.0,
         )
         self._draw_value_row(
             x + 18,
-            y + 111,
+            y + 96,
             "Velocità max",
             f"{moving_speed:.0f} px/s",
         )
-        y += 161
+        y += 140
 
-        self._draw_panel(x, y, width, 150)
-        red_distance = self._format_distance(self._best_distance_meters("red"))
-        blue_distance = self._format_distance(self._best_distance_meters("blue"))
-        self._draw_value_row(x + 18, y + 13, "Migliore rosso", red_distance)
-        self._draw_value_row(x + 18, y + 43, "Migliore blu", blue_distance)
-        self._draw_value_row(x + 18, y + 73, "Più vicino", self._leader_text())
-
-        collisions = f"{self.ball_collisions}  +  jack {self.jack_hits}"
-        self._draw_value_row(x + 18, y + 103, "Collisioni", collisions)
-        physics_text = (
-            f"Urti bordo: {self.border_hits}  •  "
-            f"attrito: {self.physics_settings['friction_deceleration']:.0f}"
+        self._draw_panel(x, y, width, 132)
+        self._draw_value_row(
+            x + 18,
+            y + 10,
+            "Migliore rosso",
+            self._format_distance(self._best_distance_meters("red")),
+        )
+        self._draw_value_row(
+            x + 18,
+            y + 40,
+            "Migliore blu",
+            self._format_distance(self._best_distance_meters("blue")),
+        )
+        self._draw_value_row(
+            x + 18,
+            y + 70,
+            "Più vicino",
+            self._leader_text(),
+        )
+        debug = (
+            f"Collisioni {self.ball_collisions}  •  "
+            f"jack {self.jack_hits}  •  bordo {self.border_hits}"
         )
         self.screen.blit(
             self.font_small.render(
-                physics_text,
+                debug,
                 True,
                 tuple(self.colors["text_secondary"]),
             ),
-            (x + 18, y + 132),
+            (x + 18, y + 104),
         )
-        y += 170
 
-        heading = self.font_big.render(
-            "CONTROLLI",
+        controls = self.font_small.render(
+            "Mira: mouse/←→  •  Potenza: rotella/↑↓  •  Lancia: click/SPA ZIO",
             True,
-            tuple(self.colors["text_primary"]),
+            tuple(self.colors["text_secondary"]),
         )
-        self.screen.blit(heading, (x, y))
-        y += 34
-
-        controls = [
-            "Mouse = mira  •  rotella = potenza",
-            "Click sx / SPAZIO = lancia",
-            "← → / A D = direzione",
-            "↑ ↓ / W S = potenza",
-            "C / click dx = centra la mira",
-            "R = ricomincia l'end",
-            "ESC = esci",
-        ]
-        for line in controls:
-            self.screen.blit(
-                self.font_small.render(
-                    line,
-                    True,
-                    tuple(self.colors["text_secondary"]),
-                ),
-                (x, y),
-            )
-            y += 22
+        # Evitiamo dipendenze grafiche esterne: il testo è intenzionalmente semplice.
+        self.screen.blit(controls, (x, self.window["height"] - 48))
 
         footer = self.font_small.render(
-            "0.3 → punteggio, end e risultato partita",
+            "C = centra  •  R = nuova partita  •  ESC = esci",
             True,
             tuple(self.colors["accent"]),
         )
-        self.screen.blit(footer, (x, self.window["height"] - 34))
+        self.screen.blit(footer, (x, self.window["height"] - 26))
 
     def _status_label(self) -> str:
         if self.state == self.READY:
             return "PREPARA IL TIRO"
         if self.state == self.ROLLING:
             return "BOCCE IN MOVIMENTO"
-        return "END COMPLETATO"
+        if self.state == self.END_RESULT:
+            return "END COMPLETATO"
+        return "PARTITA TERMINATA"
 
     def _status_hint(self) -> str:
         if self.state == self.READY:
@@ -430,8 +511,10 @@ class GameScreen:
             name = "giocatore" if current is None else current.name
             return f"{name}: mira, regola la potenza e lancia."
         if self.state == self.ROLLING:
-            return "Le collisioni possono cambiare completamente la posizione."
-        return "Premi R per ricominciare l'end di prova."
+            return "Ogni collisione può cambiare punteggio e turno."
+        if self.state == self.END_RESULT:
+            return "Controlla il punteggio dell'end."
+        return "La partita è conclusa."
 
     def _leader_text(self) -> str:
         leader = self.match.leader(self.jack.position)
@@ -499,7 +582,7 @@ class GameScreen:
         self.screen.blit(value_surface, (x + 190, y))
 
     def _draw_power_bar(self, x: int, y: int, width: int) -> None:
-        height = 16
+        height = 15
         background = pygame.Rect(x, y, width, height)
         pygame.draw.rect(
             self.screen,
