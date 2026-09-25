@@ -331,7 +331,6 @@ class TrainingScreen:
                 )
 
         elif key == "corridor":
-            self._randomize_jack(prepare=False)
             corridor_width = self.field.px_per_meter_x * 0.85
             left = self.field.rect.centerx - corridor_width / 2.0
             top = self.field.rect.top + self.field.px_per_meter_y * 1.0
@@ -342,9 +341,20 @@ class TrainingScreen:
                 round(corridor_width),
                 round(bottom - top),
             )
+            jack_y = self.random.uniform(
+                top + self.field.px_per_meter_y,
+                bottom - self.field.px_per_meter_y,
+            )
+            self.jack.position.update(
+                self.field.rect.centerx,
+                jack_y,
+            )
+            self.jack.velocity.update(0, 0)
 
         elif key == "penalty":
-            self.jack.position = self.field.cross_position.copy()
+            # Penalty phase uses an empty target box: no jack is present.
+            self.jack.position.update(-1000, -1000)
+            self.jack.velocity.update(0, 0)
 
         self.drill_message = self.drill.success_hint
         self._prepare_ball()
@@ -526,6 +536,8 @@ class TrainingScreen:
         )
 
     def _draw_training_rings(self) -> None:
+        if self.drill.key == "penalty":
+            return
         center = (
             round(self.jack.position.x),
             round(self.jack.position.y),
