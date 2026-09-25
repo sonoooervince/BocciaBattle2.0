@@ -6,8 +6,9 @@ import pygame
 
 from game.ai import get_ai_profile
 from game.boccia_profiles import BOCCIA_PROFILES, get_boccia_profile
-from game.brands import BOCCIA_BRANDS, get_brand
 from game.official_rules import SportClass, get_event_format
+from game.player_profile import load_profile
+from game.store_catalog import get_real_set
 from game.user_settings import (
     apply_user_settings,
     runtime_user_settings,
@@ -30,10 +31,10 @@ class SettingsScreen:
         self.font_small = pygame.font.SysFont("arial", 15)
         self.row_rects: list[pygame.Rect] = []
         self.rows = (
-            "brand",
             "ball",
             "ai",
             "class",
+            "aim",
             "think",
             "guides",
             "save",
@@ -66,19 +67,40 @@ class SettingsScreen:
             True,
             tuple(self.colors["text_primary"]),
         )
-        self.screen.blit(title, title.get_rect(center=(width // 2, 65)))
+        self.screen.blit(title, title.get_rect(center=(width // 2, 55)))
 
         fmt = get_event_format(
             "individual",
             self.values["sport_class"],
         )
+        profile = load_profile()
+        current_set = get_real_set(profile.equipped_set)
+
+        equipped = self.font_small.render(
+            f"Set: {current_set.brand_name} • {current_set.model}",
+            True,
+            tuple(self.colors["accent"]),
+        )
+        self.screen.blit(
+            equipped,
+            equipped.get_rect(center=(width // 2, 95)),
+        )
+
         labels = (
-            ("Marca bocce", get_brand(self.values["preferred_brand"]).display_name),
-            ("Profilo boccia", get_boccia_profile(self.values["selected_boccia_type"]).label),
+            (
+                "Profilo fisico",
+                get_boccia_profile(
+                    self.values["selected_boccia_type"]
+                ).label,
+            ),
             ("Livello IA", self._ai_text()),
             (
                 "Classe",
-                f'{self.values["sport_class"]} • {self._clock(fmt.seconds_per_side)} per end',
+                f'{self.values["sport_class"]} • {self._clock(fmt.seconds_per_side)}',
+            ),
+            (
+                "Controllo tiro",
+                "MIRINO" if self.values["aim_mode"] == "target" else "MANUALE",
             ),
             ("Tempo pensiero IA", f'{self.values["ai_think_time"]:.1f} s'),
             (
@@ -89,19 +111,19 @@ class SettingsScreen:
         )
 
         subtitle = self.font_small.render(
-            "Individuale World Boccia: 4 end • 6 bocce • tempi ufficiali per classe",
+            "Il set reale si sceglie nello STORE • 4 end • 6 bocce • tempi World Boccia",
             True,
-            tuple(self.colors["accent"]),
+            tuple(self.colors["text_secondary"]),
         )
         self.screen.blit(
             subtitle,
-            subtitle.get_rect(center=(width // 2, 105)),
+            subtitle.get_rect(center=(width // 2, 120)),
         )
 
         self.row_rects = []
         row_width = 820
         row_height = 68
-        start_y = 140
+        start_y = 145
         gap = 10
         for index, (label, value) in enumerate(labels):
             rect = pygame.Rect(
@@ -160,7 +182,7 @@ class SettingsScreen:
         )
         self.screen.blit(
             help_text,
-            help_text.get_rect(center=(width // 2, height - 35)),
+            help_text.get_rect(center=(width // 2, height - 25)),
         )
 
     def consume_action(self) -> str | None:
@@ -174,16 +196,7 @@ class SettingsScreen:
 
     def _change(self, direction: int) -> None:
         key = self.rows[self.selected]
-        if key == "brand":
-            current = get_brand(self.values["preferred_brand"])
-            index = next(
-                i for i, item in enumerate(BOCCIA_BRANDS)
-                if item.key == current.key
-            )
-            self.values["preferred_brand"] = BOCCIA_BRANDS[
-                (index + direction) % len(BOCCIA_BRANDS)
-            ].key
-        elif key == "ball":
+        if key == "ball":
             current = get_boccia_profile(
                 self.values["selected_boccia_type"]
             )
@@ -205,6 +218,12 @@ class SettingsScreen:
             self.values["sport_class"] = classes[
                 (index + direction) % len(classes)
             ]
+        elif key == "aim":
+            self.values["aim_mode"] = (
+                "manual"
+                if self.values["aim_mode"] == "target"
+                else "target"
+            )
         elif key == "think":
             self.values["ai_think_time"] = round(
                 max(

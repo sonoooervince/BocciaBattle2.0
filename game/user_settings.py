@@ -22,6 +22,7 @@ def default_user_settings() -> dict[str, Any]:
         "sport_class": "BC2",
         "ai_think_time": 0.9,
         "show_distance_guides": True,
+        "aim_mode": "target",
     }
 
 
@@ -61,6 +62,10 @@ def normalize_user_settings(values: dict[str, Any]) -> dict[str, Any]:
     sport_class = normalize_sport_class(
         values.get("sport_class", defaults["sport_class"])
     )
+    aim_mode = str(values.get("aim_mode", "target")).lower()
+    if aim_mode not in {"target", "manual"}:
+        aim_mode = "target"
+
     return {
         "preferred_brand": brand.key,
         "selected_boccia_type": profile.key,
@@ -73,6 +78,7 @@ def normalize_user_settings(values: dict[str, Any]) -> dict[str, Any]:
         "show_distance_guides": bool(
             values.get("show_distance_guides", True)
         ),
+        "aim_mode": aim_mode,
     }
 
 
@@ -91,8 +97,8 @@ def apply_user_settings(
     gameplay["sport_class"] = values["sport_class"]
     gameplay["ai_think_time"] = values["ai_think_time"]
     gameplay["show_distance_guides"] = values["show_distance_guides"]
+    gameplay["aim_mode"] = values["aim_mode"]
 
-    # Official Individual format is fixed by the rules.
     gameplay["balls_per_player"] = 6
     match["ends"] = 4
     match["official_rules"] = True
@@ -118,5 +124,6 @@ def runtime_user_settings(settings: dict[str, Any]) -> dict[str, Any]:
                 "show_distance_guides",
                 True,
             ),
+            "aim_mode": gameplay.get("aim_mode", "target"),
         }
     )
