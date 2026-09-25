@@ -31,6 +31,11 @@ class LocalGameScreen(GameScreen):
         self.ai_key = "__none__"
         self.timeout_owner: str | None = None
         self.local_profile = load_profile()
+        self.local_available_slots = {
+            "red": list(range(6)),
+            "blue": list(range(6)),
+        }
+        self.local_selected_slot = {"red": 0, "blue": 0}
         self.state = self.COIN_CHOICE
         self.coin_toss_text = (
             "GIOCATORE 1 ha vinto il sorteggio"
@@ -89,6 +94,11 @@ class LocalGameScreen(GameScreen):
 
         self.human_key = self.player1_key
         self.ai_key = "__none__"
+        self.local_available_slots = {
+            "red": list(range(6)),
+            "blue": list(range(6)),
+        }
+        self.local_selected_slot = {"red": 0, "blue": 0}
         self.match = self._create_local_match()
         self.jack = self._new_jack_at_cross()
         self.referee_message = (
@@ -124,6 +134,11 @@ class LocalGameScreen(GameScreen):
         self.local_coin_winner = self.random.choice(("p1", "p2"))
         self.player1_key = "red"
         self.player2_key = "blue"
+        self.local_available_slots = {
+            "red": list(range(6)),
+            "blue": list(range(6)),
+        }
+        self.local_selected_slot = {"red": 0, "blue": 0}
         self.match = self._create_local_match()
         self.jack = self._new_jack_at_cross()
         self.state = self.COIN_CHOICE
@@ -140,13 +155,10 @@ class LocalGameScreen(GameScreen):
     def _make_ball(self, key: str, ai: bool = False):
         del ai
         player = self.match.player(key)
-        slot_index = max(
-            0,
-            min(
-                5,
-                self.event_format.balls_per_side - player.remaining,
-            ),
-        )
+        available = self.local_available_slots.get(key) or list(range(6))
+        selected = self.local_selected_slot.get(key, available[0])
+        slot_index = selected if selected in available else available[0]
+
         guest = key == self.player2_key
         spec = self.local_profile.get_ball_slot(
             slot_index,
@@ -163,7 +175,16 @@ class LocalGameScreen(GameScreen):
             boccia_type=approximate_profile_key(spec["hardness"]),
             set_id=spec["set_id"],
             hardness=spec["hardness"],
+            loadout_slot=slot_index,
         )
+
+    def _register_launched_ball(self, ball):
+        super()._register_launched_ball(ball)
+        available = self.local_available_slots.get(ball.owner_key, [])
+        if ball.loadout_slot in available:
+            available.remove(ball.loadout_slot)
+        if available:
+            self.local_selected_slot[ball.owner_key] = available[0]
 
     def _prepare_jack_turn(self) -> None:
         if self.match.current_key is None:
@@ -180,6 +201,9 @@ class LocalGameScreen(GameScreen):
             return
         self.angle = 0.0
         self.power = 55.0
+        available = self.local_available_slots.get(player.key, [])
+        if available and self.local_selected_slot.get(player.key) not in available:
+            self.local_selected_slot[player.key] = available[0]
         self.active_ball = self._make_ball(player.key)
         self.ai_plan = None
         self.state = self.READY
@@ -283,31 +307,57 @@ class LocalGameScreen(GameScreen):
         )
         self.state = self.TIMEOUT
 
-    def _select_boccia_type(self, index: int) -> None:
+    def _select_loadout_slot(self, index: int) -> None:
         if self.state not in (self.READY, self.PENALTY_READY):
             return
-        if not (0 <= index < len(BOCCIA_PROFILES)):
-            return
-        self.selected_boccia_type = BOCCIA_PROFILES[index].key
         key = self.match.current_key
-        if key is None:
+        if key is None or not (0 <= index < 6):
             return
+
+        available = self.local_available_slots.get(key, [])
+        if self.state == self.READY and index not in available:
+            self.referee_message = f"Boccia {index + 1} già giocata"
+            return
+
+        self.local_selected_slot[key] = index
         if self.state == self.PENALTY_READY:
             self.penalty_ball = self._make_ball(key)
         else:
             self.active_ball = self._make_ball(key)
 
-    def _cycle_boccia_type(self, direction: int) -> None:
+    def _cycle_loadout_slot(self, direction: int) -> None:
         if self.state not in (self.READY, self.PENALTY_READY):
             return
-        self.selected_boccia_type = cycle_boccia_profile(
-            self.selected_boccia_type,
-            direction,
-        ).key
         key = self.match.current_key
         if key is None:
             return
+
+        available = (
+            self.local_available_slots.get(key, [])
+            if self.state == self.READY
+            else list(range(6))
+        )
+        if not available:
+            return
+
+        selected = self.local_selected_slot.get(key, available[0])
+        try:
+            current = available.index(selected)
+        except ValueError:
+            current = 0
+
+        self.local_selected_slot[key] = available[
+            (current + direction) % len(available)
+        ]
         if self.state == self.PENALTY_READY:
             self.penalty_ball = self._make_ball(key)
         else:
             self.active_ball = self._make_ball(key)
+
+    def _reset_end_counters(self) -> None:
+        super()._reset_end_counters()
+        self.local_available_slots = {
+            "red": list(range(6)),
+            "blue": list(range(6)),
+        }
+        self.local_selected_slot = {"red": 0, "blue": 0}
