@@ -748,6 +748,13 @@ class GameScreen:
         self.current_shot_ball_collision_start = self.ball_collisions
         self.current_shot_jack_hit_start = self.jack_hits
         self.match.register_throw(ball)
+        if (
+            ball.owner_key == self.human_key
+            and ball.loadout_slot in self.human_available_slots
+        ):
+            self.human_available_slots.remove(ball.loadout_slot)
+            if self.human_available_slots:
+                self.selected_loadout_slot = self.human_available_slots[0]
         self.last_launched_ball = ball
         self.replay_recorder.start(
             self.match.all_balls,
