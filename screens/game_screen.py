@@ -11,6 +11,7 @@ from game.jack import Jack
 from game.match import MatchController
 from game.physics import PhysicsEngine
 from game.ai import BocciaAI
+from game.boccia_profiles import BOCCIA_PROFILES, cycle_boccia_profile, get_boccia_profile
 from screens.result_screen import ResultScreen
 
 
@@ -65,6 +66,7 @@ class GameScreen:
         )
         self.ai_think_timer = 0.0
         self.ai_plan = None
+        self.selected_boccia_type = self.gameplay.get("selected_boccia_type", "medie")
 
         self.angle = 0.0
         self.power = 55.0
@@ -283,7 +285,35 @@ class GameScreen:
             mass=self.gameplay["boccia_mass"],
         )
 
-    def _continuous_keyboard_input(self, dt: float) -> None:
+    def _select_boccia_type(self, index: int) -> None:
+        if self.state != self.READY or not (0 <= index < len(BOCCIA_PROFILES)):
+            return
+        self.selected_boccia_type = BOCCIA_PROFILES[index].key
+        self._rebuild_active_ball()
+
+    def _cycle_boccia_type(self, direction: int) -> None:
+        if self.state != self.READY:
+            return
+        self.selected_boccia_type = cycle_boccia_profile(
+            self.selected_boccia_type,
+            direction,
+        ).key
+        self._rebuild_active_ball()
+
+    def _rebuild_active_ball(self) -> None:
+        player = self.match.current_player
+        if player is None:
+            return
+        self.active_ball = Boccia(
+            self.field.launch_point,
+            radius=self.gameplay["boccia_radius"],
+            color=player.color,
+            owner_key=player.key,
+            mass=self.gameplay["boccia_mass"],
+            boccia_type=self.selected_boccia_type,
+        )
+
+    def _continuous_keyboard_input(self, dt: float) -> None
         keys = pygame.key.get_pressed()
         angle_speed = self.gameplay["angle_keyboard_speed"]
         power_speed = self.gameplay["power_keyboard_speed"]
@@ -355,6 +385,7 @@ class GameScreen:
             color=player.color,
             owner_key=player.key,
             mass=self.gameplay["boccia_mass"],
+            boccia_type="medie",
         )
         self.active_ball.launch(
             angle_degrees=plan.angle,
@@ -436,7 +467,7 @@ class GameScreen:
         y += 43
 
         version = self.font_small.render(
-            "VERSIONE 0.4 • PLAYER VS COMPUTER",
+            "VERSIONE 0.5 • PLAYER VS COMPUTER",
             True,
             tuple(self.colors["accent"]),
         )
@@ -508,8 +539,8 @@ class GameScreen:
         self._draw_value_row(
             x + 18,
             y + 96,
-            "Velocità max",
-            f"{moving_speed:.0f} px/s",
+            "Boccia",
+            get_boccia_profile(self.selected_boccia_type).label,
         )
         y += 140
 
@@ -546,7 +577,7 @@ class GameScreen:
         )
 
         controls = self.font_small.render(
-            "Mira: mouse/←→  •  Potenza: rotella/↑↓  •  Lancia: click/SPAZIO",
+            "Boccia: 1-5 / Q-E  •  Mira: mouse/←→  •  Potenza: rotella/↑↓  •  Lancia: click/SPAZIO",
             True,
             tuple(self.colors["text_secondary"]),
         )
