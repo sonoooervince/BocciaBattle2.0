@@ -5,6 +5,8 @@ from typing import Any
 
 import pygame
 
+from game.player_profile import load_profile
+
 
 @dataclass(frozen=True)
 class MenuItem:
@@ -25,6 +27,7 @@ class MenuScreen:
         self.font_subtitle = pygame.font.SysFont("arial", 20)
         self.font_button = pygame.font.SysFont("arial", 24, bold=True)
         self.font_small = pygame.font.SysFont("arial", 15)
+        self.profile = load_profile()
 
         self.items = (
             MenuItem("GIOCA VS COMPUTER", "quick"),
@@ -34,7 +37,8 @@ class MenuScreen:
                 note="7 round • IA livello 5 → 50",
             ),
             MenuItem("ALLENAMENTO", "training", note="tiri liberi e bersagli"),
-            MenuItem("IMPOSTAZIONI", "settings", note="marca, IA e partita"),
+            MenuItem("STORE", "store", note="solo set di bocce reali"),
+            MenuItem("IMPOSTAZIONI", "settings", note="classe, IA e controllo"),
             MenuItem("ESCI", "quit"),
         )
         self.selected_index = 0
@@ -84,14 +88,28 @@ class MenuScreen:
         )
         self.screen.blit(
             subtitle,
-            subtitle.get_rect(center=(width // 2, 163)),
+            subtitle.get_rect(center=(width // 2, 158)),
+        )
+
+        self.profile = load_profile()
+        profile_text = self.font_small.render(
+            (
+                f"RANK {self.profile.rank} • LV {self.profile.level} • "
+                f"XP {self.profile.xp} • GOLD {self.profile.gold}"
+            ),
+            True,
+            tuple(self.colors["text_secondary"]),
+        )
+        self.screen.blit(
+            profile_text,
+            profile_text.get_rect(center=(width // 2, 190)),
         )
 
         self.button_rects = []
         button_width = 520
-        button_height = 72
-        start_y = 235
-        gap = 18
+        button_height = 62
+        start_y = 220
+        gap = 12
 
         for index, item in enumerate(self.items):
             rect = pygame.Rect(
@@ -153,7 +171,7 @@ class MenuScreen:
         )
 
         version = self.font_small.render(
-            "VERSIONE 0.8",
+            "VERSIONE 0.9",
             True,
             tuple(self.colors["accent"]),
         )

@@ -33,6 +33,7 @@ jobs:
           from screens.game_screen import GameScreen
           from screens.menu import MenuScreen
           from screens.settings_screen import SettingsScreen
+          from screens.store_screen import StoreScreen
           from screens.tournament_screen import TournamentScreen
           from screens.training_screen import TrainingScreen
 
@@ -54,6 +55,7 @@ jobs:
               TournamentScreen(surface, settings),
               TrainingScreen(surface, settings),
               SettingsScreen(surface, settings),
+              StoreScreen(surface, settings),
           ]
           for current in screens:
               for _ in range(5):
