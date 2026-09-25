@@ -634,18 +634,19 @@ class GameScreen:
         set_id = ""
         hardness = ""
 
+        loadout_slot = -1
         if key == self.human_key and not ai:
-            slot_index = max(
-                0,
-                min(
-                    5,
-                    self.event_format.balls_per_side - player.remaining,
-                ),
+            available = self.human_available_slots or list(range(6))
+            slot_index = (
+                self.selected_loadout_slot
+                if self.selected_loadout_slot in available
+                else available[0]
             )
             spec = self.player_profile.get_ball_slot(slot_index)
             set_id = spec["set_id"]
             hardness = spec["hardness"]
             boccia_type = approximate_profile_key(hardness)
+            loadout_slot = slot_index
 
         return Boccia(
             self.field.launch_point_for(key),
@@ -656,6 +657,7 @@ class GameScreen:
             boccia_type=boccia_type,
             set_id=set_id,
             hardness=hardness,
+            loadout_slot=loadout_slot,
         )
 
     def _launch_human(self) -> None:
