@@ -409,6 +409,7 @@ class GameScreen:
             self.penalty_ball.draw(self.screen)
 
         self._draw_hud()
+        self._draw_measurement_panel()
 
         if self.state == self.TIMEOUT:
             self.results.draw_message(
@@ -591,15 +592,32 @@ class GameScreen:
 
     def _make_ball(self, key: str, ai: bool = False) -> Boccia:
         player = self.match.player(key)
+        boccia_type = "medie" if ai else self.selected_boccia_type
+        set_id = ""
+        hardness = ""
+
+        if key == self.human_key and not ai:
+            slot_index = max(
+                0,
+                min(
+                    5,
+                    self.event_format.balls_per_side - player.remaining,
+                ),
+            )
+            spec = self.player_profile.get_ball_slot(slot_index)
+            set_id = spec["set_id"]
+            hardness = spec["hardness"]
+            boccia_type = approximate_profile_key(hardness)
+
         return Boccia(
             self.field.launch_point_for(key),
             radius=self.gameplay["boccia_radius"],
             color=player.color,
             owner_key=key,
             mass=self.gameplay["boccia_mass"],
-            boccia_type=(
-                "medie" if ai else self.selected_boccia_type
-            ),
+            boccia_type=boccia_type,
+            set_id=set_id,
+            hardness=hardness,
         )
 
     def _launch_human(self) -> None:
@@ -662,6 +680,7 @@ class GameScreen:
             self.jack,
             self.field.launch_point_for(key),
             side_key=key,
+            boccia_type="medie",
         )
         self.ai_plan = plan
         self.angle = plan.angle
@@ -685,6 +704,9 @@ class GameScreen:
         self._register_launched_ball(ball)
 
     def _register_launched_ball(self, ball: Boccia) -> None:
+        self.current_shot_owner = ball.owner_key
+        self.current_shot_ball_collision_start = self.ball_collisions
+        self.current_shot_jack_hit_start = self.jack_hits
         self.match.register_throw(ball)
         self.last_launched_ball = ball
         self.active_ball = None
@@ -788,6 +810,7 @@ class GameScreen:
         if thrower is not None and self.match.time_remaining[thrower] <= 0.0:
             self.match.expire_side_time(thrower)
 
+        self._record_completed_shot(ball, thrower)
         self.last_launched_ball = None
         next_key = self.match.choose_next_turn(
             self.jack.position,
@@ -826,7 +849,10 @@ class GameScreen:
             return
         profile = load_profile()
         won = winner == self.human_key
-        xp_gain, gold_gain = profile.reward_match(won)
+        xp_gain, gold_gain = profile.reward_match(
+            won,
+            set_id=self.selected_set_id,
+        )
         save_profile(profile)
         self.reward_awarded = True
         self.reward_text = f"+{xp_gain} XP • +{gold_gain} GOLD"
@@ -1000,6 +1026,105 @@ class GameScreen:
             self._finish_end()
         else:
             self._prepare_coloured_turn()
+
+    def _record_completed_shot(
+        self,
+        ball: Boccia | None,
+        thrower: str | None,
+    ) -> None:
+        if (
+            thrower != self.human_key
+            or self.current_shot_owner != self.human_key
+        ):
+            return
+
+        distance_cm: float | None = None
+        set_id = self.selected_set_id
+
+        if ball is not None:
+            set_id = ball.set_id or set_id
+            if ball in self.match.all_balls:
+                distance_px = ball.position.distance_to(self.jack.position)
+                distance_cm = (
+                    distance_px
+                    / self.field.rect.height
+                    * self.field.COURT_LENGTH_M
+                    * 100.0
+                )
+
+        hit_ball = (
+            self.ball_collisions
+            > self.current_shot_ball_collision_start
+        )
+        hit_jack = self.jack_hits > self.current_shot_jack_hit_start
+
+        self.player_profile = load_profile()
+        self.player_profile.record_shot(
+            distance_cm=distance_cm,
+            hit_ball=hit_ball,
+            hit_jack=hit_jack,
+            set_id=set_id,
+        )
+        save_profile(self.player_profile)
+
+    def _draw_measurement_panel(self) -> None:
+        if not self.match.jack_valid:
+            return
+
+        values = measure_balls(
+            self.match.all_balls,
+            self.jack.position,
+            self.field.rect.height,
+        )
+        if not values:
+            return
+
+        auto = needs_precision_measurement(values)
+        if not self.precise_measurement and not auto:
+            return
+
+        x = self.field.rect.left + 8
+        y = self.field.rect.top + 8
+        width = 238
+        height = 30 + min(6, len(values)) * 24
+
+        panel = pygame.Rect(x, y, width, height)
+        overlay = pygame.Surface((width, height), pygame.SRCALPHA)
+        overlay.fill((15, 20, 25, 222))
+        self.screen.blit(overlay, panel.topleft)
+        pygame.draw.rect(
+            self.screen,
+            tuple(self.colors["accent"]),
+            panel,
+            1,
+            border_radius=7,
+        )
+
+        title = self.font_small.render(
+            "MISURAZIONE AUTOMATICA" if auto else "MISURAZIONE",
+            True,
+            tuple(self.colors["accent"]),
+        )
+        self.screen.blit(title, (x + 8, y + 7))
+
+        for index, item in enumerate(values[:6]):
+            label = (
+                "R" if item.owner_key == "red" else "B"
+            )
+            precision = (
+                f"{item.distance_cm:.1f} cm"
+                if item.distance_cm >= 10.0
+                else f"{item.distance_cm * 10.0:.0f} mm"
+            )
+            line = self.font_small.render(
+                f"{index + 1}. {label}  {precision}",
+                True,
+                tuple(self.match.player(item.owner_key).color),
+            )
+            self.screen.blit(
+                line,
+                (x + 8, y + 31 + index * 24),
+            )
 
     def _capture_legitimate_state(self) -> None:
         self.last_legitimate_snapshot = capture_disrupted_end(
