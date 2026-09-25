@@ -10,6 +10,7 @@ from game.field import Field
 from game.jack import Jack
 from game.match import MatchController
 from game.physics import PhysicsEngine
+from game.ai import BocciaAI
 from screens.result_screen import ResultScreen
 
 
@@ -18,6 +19,7 @@ class GameScreen:
     ROLLING = "rolling"
     END_RESULT = "end_result"
     MATCH_RESULT = "match_result"
+    AI_THINKING = "ai_thinking"
 
     def __init__(self, screen: pygame.Surface, settings: dict[str, Any]) -> None:
         self.screen = screen
@@ -54,6 +56,14 @@ class GameScreen:
 
         self.results = ResultScreen(screen, self.colors)
         self.match = self._new_match_controller()
+        self.ai = BocciaAI(
+            min_speed=self.gameplay["min_launch_speed"],
+            max_speed=self.gameplay["max_launch_speed"],
+            friction_deceleration=self.physics_settings["friction_deceleration"],
+            difficulty=self.gameplay.get("ai_difficulty", "normal"),
+        )
+        self.ai_think_timer = 0.0
+        self.ai_plan = None
 
         self.angle = 0.0
         self.power = 55.0
@@ -84,6 +94,9 @@ class GameScreen:
             if self.state == self.MATCH_RESULT:
                 if event.key in (pygame.K_RETURN, pygame.K_SPACE):
                     self._restart_match()
+                return
+
+            if self.state == self.AI_THINKING:
                 return
 
             if event.key in (pygame.K_SPACE, pygame.K_RETURN):
@@ -127,6 +140,12 @@ class GameScreen:
                 self.angle = 0.0
 
     def update(self, dt: float) -> None:
+        if self.state == self.AI_THINKING:
+            self.ai_think_timer -= dt
+            if self.ai_think_timer <= 0.0:
+                self._launch_ai()
+            return
+
         if self.state == self.READY:
             self._continuous_keyboard_input(dt)
             return
@@ -151,7 +170,6 @@ class GameScreen:
         next_key = self.match.choose_next_turn(self.jack.position)
 
         if next_key is not None:
-            self.state = self.READY
             self._prepare_turn()
             return
 
@@ -240,10 +258,20 @@ class GameScreen:
         player = self.match.current_player
         if player is None:
             self.active_ball = None
+            self.ai_plan = None
             return
 
         self.angle = 0.0
         self.power = 55.0
+        self.active_ball = None
+        self.ai_plan = None
+
+        if player.key == "blue":
+            self.ai_think_timer = self.gameplay.get("ai_think_time", 0.9)
+            self.state = self.AI_THINKING
+            return
+
+        self.state = self.READY
         self.active_ball = Boccia(
             self.field.launch_point,
             radius=self.gameplay["boccia_radius"],
@@ -295,6 +323,39 @@ class GameScreen:
         self.active_ball.launch(
             angle_degrees=self.angle,
             power_percent=self.power,
+            min_speed=self.gameplay["min_launch_speed"],
+            max_speed=self.gameplay["max_launch_speed"],
+        )
+        self.match.register_throw(self.active_ball)
+        self.state = self.ROLLING
+
+    def _launch_ai(self) -> None:
+        if self.state != self.AI_THINKING:
+            return
+
+        plan = self.ai.choose_shot_from_launch(
+            self.match,
+            self.jack,
+            self.field.launch_point,
+        )
+        self.ai_plan = plan
+        self.angle = plan.angle
+        self.power = plan.power
+
+        player = self.match.current_player
+        if player is None or player.key != "blue":
+            return
+
+        self.active_ball = Boccia(
+            self.field.launch_point,
+            radius=self.gameplay["boccia_radius"],
+            color=player.color,
+            owner_key=player.key,
+            mass=self.gameplay["boccia_mass"],
+        )
+        self.active_ball.launch(
+            angle_degrees=plan.angle,
+            power_percent=plan.power,
             min_speed=self.gameplay["min_launch_speed"],
             max_speed=self.gameplay["max_launch_speed"],
         )
@@ -372,7 +433,7 @@ class GameScreen:
         y += 43
 
         version = self.font_small.render(
-            "VERSIONE 0.3 • PARTITA ED END",
+            "VERSIONE 0.4 • PLAYER VS COMPUTER",
             True,
             tuple(self.colors["accent"]),
         )
@@ -499,7 +560,11 @@ class GameScreen:
     def _status_label(self) -> str:
         if self.state == self.READY:
             return "PREPARA IL TIRO"
+        if self.state == self.AI_THINKING:
+            return "IL COMPUTER STA PENSANDO..."
         if self.state == self.ROLLING:
+            if self.ai_plan is not None:
+                return f"IL COMPUTER LANCIA • {self.ai_plan.decision}"
             return "BOCCE IN MOVIMENTO"
         if self.state == self.END_RESULT:
             return "END COMPLETATO"
@@ -507,9 +572,9 @@ class GameScreen:
 
     def _status_hint(self) -> str:
         if self.state == self.READY:
-            current = self.match.current_player
-            name = "giocatore" if current is None else current.name
-            return f"{name}: mira, regola la potenza e lancia."
+            return "Tu: mira, regola la potenza e lancia."
+        if self.state == self.AI_THINKING:
+            return "Analisi del campo e scelta del tiro..."
         if self.state == self.ROLLING:
             return "Ogni collisione può cambiare punteggio e turno."
         if self.state == self.END_RESULT:
