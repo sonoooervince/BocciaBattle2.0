@@ -61,6 +61,7 @@ class GameScreen:
             max_speed=self.gameplay["max_launch_speed"],
             friction_deceleration=self.physics_settings["friction_deceleration"],
             difficulty=self.gameplay.get("ai_difficulty", "normal"),
+            level=self.gameplay.get("ai_level", 10),
         )
         self.ai_think_timer = 0.0
         self.ai_plan = None
