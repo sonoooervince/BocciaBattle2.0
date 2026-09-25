@@ -92,6 +92,10 @@ class GameScreen:
             stop_speed=self.physics_settings["stop_speed"],
             max_substeps=self.physics_settings["max_substeps"],
             boundary_mode="open",
+            solver_iterations=self.physics_settings.get(
+                "solver_iterations",
+                6,
+            ),
         )
         self.results = ResultScreen(screen, self.colors)
 
@@ -1247,7 +1251,7 @@ class GameScreen:
         y += 38
         self.screen.blit(
             self.font_small.render(
-                f"VERSIONE 0.9 • {RULES_VERSION}",
+                f"VERSIONE 0.9.1 • {RULES_VERSION}",
                 True,
                 tuple(self.colors["accent"]),
             ),
