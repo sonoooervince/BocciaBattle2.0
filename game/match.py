@@ -63,6 +63,8 @@ class MatchController:
         self.base_score_before_penalties: EndScore | None = None
         self.yellow_cards = {"red": 0, "blue": 0}
         self.red_cards = {"red": 0, "blue": 0}
+        self.medical_timeout_used = {"red": False, "blue": False}
+        self.technical_timeout_used = {"red": False, "blue": False}
         self._equidistant_active = False
         self._equidistant_next_key: str | None = None
 
@@ -229,6 +231,18 @@ class MatchController:
             self.penalty_order[0] if self.penalty_order else None
         )
         return self.current_key
+
+    def request_medical_timeout(self, key: str) -> bool:
+        if self.medical_timeout_used[key]:
+            return False
+        self.medical_timeout_used[key] = True
+        return True
+
+    def request_technical_timeout(self, key: str) -> bool:
+        if self.technical_timeout_used[key]:
+            return False
+        self.technical_timeout_used[key] = True
+        return True
 
     def give_yellow_card(self, key: str) -> None:
         self.yellow_cards[key] += 1
@@ -446,6 +460,8 @@ class MatchController:
         self.tiebreak_first_key = None
         self.tiebreak_count = 0
         self.forfeit_key = None
+        self.medical_timeout_used = {"red": False, "blue": False}
+        self.technical_timeout_used = {"red": False, "blue": False}
         self._reset_regulation_end()
 
     def _reset_regulation_end(self) -> None:
