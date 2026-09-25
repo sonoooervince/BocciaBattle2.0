@@ -474,7 +474,7 @@ class GameScreen:
         y += 43
 
         version = self.font_small.render(
-            "VERSIONE 0.5 • PLAYER VS COMPUTER",
+            "VERSIONE 0.6 • PLAYER VS COMPUTER",
             True,
             tuple(self.colors["accent"]),
         )

@@ -1,125 +1,164 @@
-# Boccia Battle — Versione 0.4
+# Boccia Battle — Versione 0.6
 
 **Boccia Battle** è un minigioco 2D di boccia paralimpica sviluppato in Python con Pygame.
 
-La Versione 0.4 mantiene la partita fisica locale e introduce il **computer come avversario giocabile**, senza creare una seconda logica di lancio.
+La Versione 0.6 mantiene la fisica, la partita completa e l'avversario controllato dal computer, e aggiunge un vero **menu principale** e il **Torneo Settimanale giocabile**.
 
-## Cosa contiene la 0.3
+## Modalità disponibili
 
-- 4 bocce rosse e 4 bocce blu per ogni end;
-- collisioni boccia-boccia;
+### Gioca vs Computer
+
+Partita completa contro il computer con:
+
+- 4 bocce per parte;
+- 4 end regolamentari;
+- tie-break automatico;
+- collisioni boccia-boccia e boccia-jack;
 - jack fisico e spostabile;
-- attrito, velocità, massa e trasferimento dell'impulso;
-- turni automatici in base alla distanza dal jack;
-- calcolo reale del punteggio a fine end;
-- 4 end regolamentari nella partita prototipo;
-- punteggio totale;
-- schermata riepilogo dopo ogni end;
-- schermata risultato finale;
-- tie-break automatico se il punteggio è pari dopo il quarto end;
-- il colore che segna apre l'end successivo;
-- configurazione separata in data/settings.json.
+- scelta fra 5 profili di boccia;
+- IA che usa lo stesso motore fisico del giocatore.
 
-## Punteggio
+### Torneo Settimanale
 
-A fine end:
+Il torneo è composto da 7 partite complete consecutive.
 
-1. viene individuato il colore con la boccia più vicina al jack;
-2. viene trovata la migliore boccia dell'avversario;
-3. il colore vincente ottiene un punto per ogni propria boccia che si trova più vicina al jack rispetto alla migliore boccia avversaria;
-4. i punti vengono aggiunti al totale della partita.
+| Round | Livello IA |
+| ---: | ---: |
+| 1 | 5 |
+| 2 | 10 |
+| 3 | 18 |
+| 4 | 27 |
+| 5 | 36 |
+| 6 | 44 |
+| 7 | 50 |
 
-Se le due migliori bocce risultano praticamente alla stessa distanza entro la tolleranza configurata, l'end assegna 0 punti.
+Per avanzare bisogna vincere la partita del round corrente. Una sconfitta elimina dal torneo. Vincendo il Round 7 si completa il torneo.
 
-## Partita
+Il livello dell'IA cambia automaticamente tra una partita e la successiva, ma fisica e regole restano identiche per giocatore e computer.
 
-La configurazione predefinita usa **4 end**.
+## IA
 
-Se al termine del quarto end il totale è in parità, Boccia Battle avvia uno o più **tie-break** fino a quando un end produce un vantaggio nel punteggio totale.
+Sono definiti **50 livelli di IA**.
+
+La difficoltà cresce attraverso:
+
+- precisione angolare;
+- precisione della potenza;
+- aggressività;
+- profondità tattica.
+
+L'IA non teletrasporta mai le bocce e non riceve vantaggi fisici. Decide angolo e potenza, poi il tiro viene eseguito dal normale motore fisico.
+
+## Profili di boccia
+
+Il giocatore può scegliere fra:
+
+1. Super morbido
+2. Morbide
+3. Medie
+4. Dura
+5. Super duro
+
+I profili modificano in modo controllato attrito, risposta alle collisioni e piccole variazioni di rotolamento.
+
+Controlli:
+
+- **1–5**: selezione diretta;
+- **Q / E**: profilo precedente/successivo.
+
+## Controlli di tiro
+
+- **Mouse**: mira;
+- **Rotella mouse**: potenza;
+- **Click sinistro** oppure **SPAZIO/INVIO**: lancia;
+- **Click destro** oppure **C**: centra la mira;
+- **← / →** oppure **A / D**: direzione;
+- **↑ / ↓** oppure **W / S**: potenza;
+- **ESC**: torna al menu durante una partita;
+- **R**: ricomincia una partita normale.
+
+Nel Torneo Settimanale il tasto R è disabilitato per evitare di annullare liberamente un round in corso.
 
 ## Avvio su Windows
 
-Apri il Prompt dei comandi o PowerShell nella cartella del progetto.
+Su Windows usa il comando python.
 
-### Ambiente virtuale consigliato
+Se pip non è installato:
 
-    py -m venv .venv
-    .venv\Scripts\activate
-    py -m pip install -r requirements.txt
-    py main.py
+    python -m ensurepip --upgrade
 
-### Avvio rapido
+Poi installa le dipendenze:
 
-    py -m pip install pygame
-    py main.py
+    python -m pip install -r requirements.txt
 
-## Controlli
+Infine avvia:
 
-- **Mouse**: mira;
-- **Rotella mouse**: modifica la potenza;
-- **Click sinistro** oppure **SPAZIO/INVIO**: lancia;
-- **Click destro** oppure **C**: centra la mira;
-- **← / →** oppure **A / D**: cambia direzione;
-- **↑ / ↓** oppure **W / S**: cambia potenza;
-- **N / SPAZIO / INVIO**: passa all'end successivo dalla schermata risultato;
-- **R**: ricomincia la partita;
-- **Esc**: esce.
+    python main.py
 
-## Struttura attuale
+In alternativa puoi usare:
+
+    avvia_boccia_battle.bat
+
+Il file BAT utilizza python e non richiede il comando py.
+
+## Struttura principale
 
     BocciaBattle2.0/
     ├─ main.py
     ├─ game/
+    │  ├─ ai.py
     │  ├─ boccia.py
+    │  ├─ boccia_profiles.py
+    │  ├─ competitive.py
     │  ├─ config.py
     │  ├─ field.py
     │  ├─ jack.py
     │  ├─ match.py
     │  ├─ physics.py
     │  ├─ player.py
-    │  └─ scoring.py
+    │  ├─ scoring.py
+    │  └─ tournament.py
     ├─ screens/
     │  ├─ game_screen.py
-    │  └─ result_screen.py
+    │  ├─ menu.py
+    │  ├─ result_screen.py
+    │  └─ tournament_screen.py
+    ├─ tests/
+    │  └─ test_tournament.py
     ├─ data/
     │  └─ settings.json
-    ├─ requirements.txt
-    └─ .gitignore
-
-## Parametri principali
-
-In data/settings.json puoi modificare:
-
-- balls_per_player: numero di bocce per colore;
-- ends: numero di end regolamentari;
-- friction_deceleration: resistenza del campo;
-- collision_restitution: elasticità degli urti;
-- border_restitution: energia mantenuta negli urti con il bordo;
-- boccia_mass e jack_mass: rapporto tra le masse;
-- max_substeps: precisione della simulazione;
-- tie_tolerance_px: tolleranza usata per considerare due migliori bocce praticamente equidistanti.
+    └─ requirements.txt
 
 ## Versioni stabili
 
-- **v0.1-stable**: singolo tiro e fisica base;
-- **v0.2-stable**: più bocce, collisioni e turni;
-- **main**: sviluppo corrente.
+- v0.1-stable: fisica base;
+- v0.2-stable: collisioni e turni;
+- v0.3-stable: partita completa locale;
+- v0.5-stable: IA, 50 livelli e profili di boccia;
+- main: Versione 0.6.
 
-## IA della Versione 0.4
+## Matchmaking
 
-Il computer osserva le bocce già presenti e il jack, valuta la situazione e sceglie una delle tre intenzioni principali: avvicinarsi al jack, bocciare la migliore boccia avversaria oppure attaccare il jack.
+game/competitive.py contiene soltanto la base logica per un futuro matchmaking.
 
-La decisione produce solamente angolo e potenza. Il tiro viene poi eseguito attraverso la stessa classe Boccia e lo stesso PhysicsEngine usati dal giocatore. Il computer non sposta mai una boccia direttamente sul bersaglio.
+La soglia dei 50 giocatori umani online e il fallback verso i bot **non costituiscono ancora un sistema multiplayer**. Non sono presenti server, account, lobby o connessioni online nella versione attuale.
 
-La difficoltà corrente è configurabile in `data/settings.json` con `ai_difficulty` (`easy`, `normal`, `hard`).
+## Controlli automatici
 
-## Versioni stabili
+Ad ogni push su main, GitHub Actions esegue:
 
-- **v0.1-stable**: singolo tiro e fisica base;
-- **v0.2-stable**: più bocce, collisioni e turni;
-- **v0.3-stable**: partita completa locale, conservata come snapshot;
-- **main**: sviluppo corrente della Versione 0.4.
+- controllo sintattico;
+- test della progressione del Torneo Settimanale;
+- smoke test headless di menu, partita e torneo;
+- creazione dell'artefatto ZIP giocabile.
 
-## Direzione successiva
+## Prossimi passi
 
-Dopo la stabilizzazione della 0.4, il prossimo lavoro sarà migliorare la qualità tattica dell'IA, poi costruire il menu principale e le modalità aggiuntive senza compromettere la partita fisica esistente.
+Le aree successive da sviluppare sono:
+
+- tattica più sofisticata per i livelli IA più alti;
+- schermata impostazioni;
+- modalità allenamento;
+- rifinitura grafica e audio;
+- salvataggio locale dei progressi;
+- solo in una fase futura, eventuale multiplayer online.

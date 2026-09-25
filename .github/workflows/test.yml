@@ -14,17 +14,13 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -m pip install -r requirements.txt
+
       - name: Syntax check
         run: python -m compileall -q .
-      - name: Package playable build
-        run: |
-          mkdir -p dist/BocciaBattle2.0
-          cp -r main.py game screens data requirements.txt avvia_boccia_battle.bat README.md dist/BocciaBattle2.0/
-          cd dist && zip -r BocciaBattle2.0-playable.zip BocciaBattle2.0
-      - uses: actions/upload-artifact@v4
-        with:
-          name: BocciaBattle2.0-playable
-          path: dist/BocciaBattle2.0-playable.zip
+
+      - name: Tournament logic tests
+        run: python -m unittest discover -s tests -p "test_*.py"
+
       - name: Headless smoke test
         env:
           SDL_VIDEODRIVER: dummy
@@ -34,13 +30,39 @@ jobs:
           import pygame
           from game.config import load_settings
           from screens.game_screen import GameScreen
+          from screens.menu import MenuScreen
+          from screens.tournament_screen import TournamentScreen
+
           pygame.init()
           settings = load_settings()
-          surface = pygame.Surface((settings["window"]["width"], settings["window"]["height"]))
-          game = GameScreen(surface, settings)
-          for _ in range(5):
-              game.update(1/60)
-              game.draw()
+          surface = pygame.Surface(
+              (
+                  settings["window"]["width"],
+                  settings["window"]["height"],
+              )
+          )
+
+          screens = [
+              MenuScreen(surface, settings),
+              GameScreen(surface, settings),
+              TournamentScreen(surface, settings),
+          ]
+          for current in screens:
+              for _ in range(5):
+                  current.update(1 / 60)
+                  current.draw()
+
           pygame.quit()
           print("Boccia Battle smoke test: OK")
           PY
+
+      - name: Package playable build
+        run: |
+          mkdir -p dist/BocciaBattle2.0
+          cp -r main.py game screens data requirements.txt avvia_boccia_battle.bat README.md dist/BocciaBattle2.0/
+          cd dist && zip -r BocciaBattle2.0-playable.zip BocciaBattle2.0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BocciaBattle2.0-playable
+          path: dist/BocciaBattle2.0-playable.zip

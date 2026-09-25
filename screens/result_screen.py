@@ -5,10 +5,11 @@ from typing import Any
 import pygame
 
 from game.scoring import EndScore
+from game.tournament import TournamentProgress
 
 
 class ResultScreen:
-    """Overlay riutilizzabile per risultato dell'end e risultato partita."""
+    """Overlay riutilizzabile per risultati di end, partita e torneo."""
 
     def __init__(
         self,
@@ -30,7 +31,11 @@ class ResultScreen:
         winner_name: str | None,
         is_tiebreak: bool,
     ) -> None:
-        title = "TIE-BREAK COMPLETATO" if is_tiebreak else f"END {end_number} COMPLETATO"
+        title = (
+            "TIE-BREAK COMPLETATO"
+            if is_tiebreak
+            else f"END {end_number} COMPLETATO"
+        )
 
         if score.winner is None:
             message = "End senza punti"
@@ -70,6 +75,41 @@ class ResultScreen:
             ),
             secondary_value=f"End disputati: {total_ends}",
             hint="INVIO / SPAZIO / R  →  nuova partita",
+        )
+
+    def draw_tournament_result(
+        self,
+        progress: TournamentProgress,
+        total_rounds: int,
+        total_scores: dict[str, int],
+    ) -> None:
+        score_text = f"{total_scores['red']}  -  {total_scores['blue']}"
+
+        if progress.status == "advanced":
+            title = f"ROUND {progress.completed_round} SUPERATO"
+            message = f"Battuta IA livello {progress.bot_level}"
+            secondary = (
+                f"Prossimo: Round {progress.next_round}/{total_rounds} "
+                f"• IA Lv {progress.next_bot_level}"
+            )
+            hint = "INVIO / SPAZIO / N  →  prossimo round"
+        elif progress.status == "champion":
+            title = "TORNEO COMPLETATO"
+            message = "BOCCIA BATTLE CHAMPION"
+            secondary = f"Superati tutti i {total_rounds} round"
+            hint = "INVIO / SPAZIO  →  torna al menu"
+        else:
+            title = f"ELIMINATO AL ROUND {progress.completed_round}"
+            message = f"Vince IA livello {progress.bot_level}"
+            secondary = "Il torneo termina qui"
+            hint = "INVIO / SPAZIO  →  torna al menu"
+
+        self._draw_overlay(
+            title=title,
+            message=message,
+            primary_value=score_text,
+            secondary_value=secondary,
+            hint=hint,
         )
 
     def _draw_overlay(
