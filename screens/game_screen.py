@@ -29,9 +29,14 @@ from game.official_rules import (
     get_event_format,
     other_side,
 )
+from game.measurement import measure_balls, needs_precision_measurement
 from game.physics import PhysicsEngine
 from game.player_profile import load_profile, save_profile
-from game.store_catalog import get_real_set
+from game.shot_simulator import ShotSimulator
+from game.store_catalog import (
+    approximate_profile_key,
+    get_real_set,
+)
 from screens.result_screen import ResultScreen
 
 
@@ -69,6 +74,11 @@ class GameScreen:
         self.progression_enabled = progression_enabled
         self.reward_awarded = False
         self.reward_text = ""
+        self.player_profile = load_profile()
+        self.precise_measurement = False
+        self.current_shot_owner: str | None = None
+        self.current_shot_ball_collision_start = 0
+        self.current_shot_jack_hit_start = 0
 
         self.font_title = pygame.font.SysFont("arial", 30, bold=True)
         self.font_big = pygame.font.SysFont("arial", 21, bold=True)
@@ -113,12 +123,22 @@ class GameScreen:
             self.coin_toss_text = "COMPUTER vince il sorteggio e sceglie ROSSO"
 
         self.match = self._new_match_controller()
+        self.shot_simulator = ShotSimulator(
+            physics_settings=self.physics_settings,
+            bounds=self.field.playable_bounds,
+            cross_position=self.field.cross_position,
+            ball_radius=self.gameplay["boccia_radius"],
+            ball_mass=self.gameplay["boccia_mass"],
+            min_speed=self.gameplay["min_launch_speed"],
+            max_speed=self.gameplay["max_launch_speed"],
+        )
         self.ai = BocciaAI(
             min_speed=self.gameplay["min_launch_speed"],
             max_speed=self.gameplay["max_launch_speed"],
             friction_deceleration=self.physics_settings["friction_deceleration"],
             difficulty=self.gameplay.get("ai_difficulty", "normal"),
             level=self.gameplay.get("ai_level", 10),
+            simulator=self.shot_simulator,
         )
 
         self.selected_boccia_type = self.gameplay.get(
@@ -213,6 +233,10 @@ class GameScreen:
             elif event.key == pygame.K_f:
                 self.match.forfeit(self.human_key)
                 self.state = self.MATCH_RESULT
+            return
+
+        if event.key == pygame.K_z:
+            self.precise_measurement = not self.precise_measurement
             return
 
         if event.key in (pygame.K_m, pygame.K_t) and self._timeout_can_be_called():
