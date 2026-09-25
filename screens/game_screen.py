@@ -1377,24 +1377,43 @@ class GameScreen:
         key = self.match.current_key or self.human_key
         return self.field.launch_point_for(key)
 
-    def _select_boccia_type(self, index: int) -> None:
+    def _select_loadout_slot(self, index: int) -> None:
         if self.state not in (self.READY, self.PENALTY_READY):
             return
-        if not (0 <= index < len(BOCCIA_PROFILES)):
+        if not (0 <= index < 6):
             return
-        self.selected_boccia_type = BOCCIA_PROFILES[index].key
+
+        if (
+            self.state == self.READY
+            and index not in self.human_available_slots
+        ):
+            self.referee_message = f"Boccia {index + 1} già giocata"
+            return
+
+        self.selected_loadout_slot = index
         if self.state == self.PENALTY_READY:
             self.penalty_ball = self._make_ball(self.human_key)
         else:
             self.active_ball = self._make_ball(self.human_key)
 
-    def _cycle_boccia_type(self, direction: int) -> None:
+    def _cycle_loadout_slot(self, direction: int) -> None:
         if self.state not in (self.READY, self.PENALTY_READY):
             return
-        self.selected_boccia_type = cycle_boccia_profile(
-            self.selected_boccia_type,
-            direction,
-        ).key
+
+        available = (
+            self.human_available_slots
+            if self.state == self.READY and self.human_available_slots
+            else list(range(6))
+        )
+        try:
+            current = available.index(self.selected_loadout_slot)
+        except ValueError:
+            current = 0
+
+        self.selected_loadout_slot = available[
+            (current + direction) % len(available)
+        ]
+
         if self.state == self.PENALTY_READY:
             self.penalty_ball = self._make_ball(self.human_key)
         else:
@@ -1435,7 +1454,11 @@ class GameScreen:
         if self.aim_mode != "target":
             return
 
-        profile = get_boccia_profile(self.selected_boccia_type)
+        profile = (
+            self.active_ball.boccia_profile
+            if self.active_ball is not None
+            else get_boccia_profile(self.selected_boccia_type)
+        )
         friction = (
             self.physics_settings["friction_deceleration"]
             * profile.friction_multiplier
@@ -1724,6 +1747,8 @@ class GameScreen:
 
     def _reset_end_counters(self) -> None:
         self.clock_announced = {"red": set(), "blue": set()}
+        self.human_available_slots = list(range(6))
+        self.selected_loadout_slot = 0
         self.ball_collisions = 0
         self.jack_hits = 0
         self.dead_ball_events = 0
