@@ -30,6 +30,8 @@ from game.official_rules import (
     other_side,
 )
 from game.physics import PhysicsEngine
+from game.player_profile import load_profile, save_profile
+from game.store_catalog import get_real_set
 from screens.result_screen import ResultScreen
 
 
@@ -50,7 +52,12 @@ class GameScreen:
     AI_THINKING_PENALTY = "ai_thinking_penalty"
     TIMEOUT = "timeout"
 
-    def __init__(self, screen: pygame.Surface, settings: dict[str, Any]) -> None:
+    def __init__(
+        self,
+        screen: pygame.Surface,
+        settings: dict[str, Any],
+        progression_enabled: bool = True,
+    ) -> None:
         self.screen = screen
         self.settings = settings
         self.window = settings["window"]
@@ -59,6 +66,9 @@ class GameScreen:
         self.match_settings = settings["match"]
         self.colors = settings["colors"]
         self.random = random.Random()
+        self.progression_enabled = progression_enabled
+        self.reward_awarded = False
+        self.reward_text = ""
 
         self.font_title = pygame.font.SysFont("arial", 30, bold=True)
         self.font_big = pygame.font.SysFont("arial", 21, bold=True)
@@ -119,6 +129,16 @@ class GameScreen:
             "show_distance_guides",
             True,
         )
+        self.aim_mode = self.gameplay.get("aim_mode", "target")
+        self.selected_set_id = self.gameplay.get(
+            "selected_set_id",
+            "handi_standard_pro",
+        )
+        self.selected_set_name = self.gameplay.get(
+            "selected_set_name",
+            get_real_set(self.selected_set_id).model,
+        )
+        self.target_marker: pygame.Vector2 | None = None
 
         self.angle = 0.0
         self.power = 55.0
@@ -767,6 +787,21 @@ class GameScreen:
             if self.match.match_over
             else self.END_RESULT
         )
+        if self.match.match_over:
+            self._award_progression_once()
+
+    def _award_progression_once(self) -> None:
+        if self.reward_awarded or not self.progression_enabled:
+            return
+        winner = self.match.winner
+        if winner is None:
+            return
+        profile = load_profile()
+        won = winner == self.human_key
+        xp_gain, gold_gain = profile.reward_match(won)
+        save_profile(profile)
+        self.reward_awarded = True
+        self.reward_text = f"+{xp_gain} XP • +{gold_gain} GOLD"
 
     def _start_penalty_phase(self) -> None:
         key = self.match.begin_penalty_phase(self.jack.position)
@@ -1080,12 +1115,38 @@ class GameScreen:
             )
 
     def _aim_at_mouse(self, mouse_pos: tuple[int, int]) -> None:
-        vector = pygame.Vector2(mouse_pos) - self._current_launch_point()
+        target = pygame.Vector2(mouse_pos)
+        vector = target - self._current_launch_point()
         if vector.length_squared() < 4:
             return
+
+        self.target_marker = target
         angle = math.degrees(math.atan2(vector.x, -vector.y))
         limit = self.gameplay["max_aim_angle"]
         self.angle = max(-limit, min(limit, angle))
+
+        if self.aim_mode != "target":
+            return
+
+        profile = get_boccia_profile(self.selected_boccia_type)
+        friction = (
+            self.physics_settings["friction_deceleration"]
+            * profile.friction_multiplier
+        )
+        required_speed = math.sqrt(
+            max(0.0, 2.0 * friction * vector.length())
+        )
+        min_speed = self.gameplay["min_launch_speed"]
+        max_speed = self.gameplay["max_launch_speed"]
+        normalized = (
+            (required_speed - min_speed)
+            / max(1.0, max_speed - min_speed)
+        )
+        target_power = normalized * 100.0
+        self.power = max(
+            self.gameplay["min_power"],
+            min(self.gameplay["max_power"], target_power),
+        )
 
     def _change_angle(self, amount: float) -> None:
         if not self._human_can_aim():
@@ -1102,6 +1163,33 @@ class GameScreen:
         )
 
     def _draw_aim_indicator(self) -> None:
+        if self.aim_mode == "target" and self.target_marker is not None:
+            center = (
+                round(self.target_marker.x),
+                round(self.target_marker.y),
+            )
+            pygame.draw.circle(
+                self.screen,
+                tuple(self.colors["aim"]),
+                center,
+                10,
+                2,
+            )
+            pygame.draw.line(
+                self.screen,
+                tuple(self.colors["aim"]),
+                (center[0] - 14, center[1]),
+                (center[0] + 14, center[1]),
+                1,
+            )
+            pygame.draw.line(
+                self.screen,
+                tuple(self.colors["aim"]),
+                (center[0], center[1] - 14),
+                (center[0], center[1] + 14),
+                1,
+            )
+
         angle_radians = math.radians(self.angle)
         direction = pygame.Vector2(
             math.sin(angle_radians),
@@ -1159,7 +1247,7 @@ class GameScreen:
         y += 38
         self.screen.blit(
             self.font_small.render(
-                f"VERSIONE 0.8 • {RULES_VERSION}",
+                f"VERSIONE 0.9 • {RULES_VERSION}",
                 True,
                 tuple(self.colors["accent"]),
             ),
@@ -1247,8 +1335,8 @@ class GameScreen:
         self._row(
             x + 16,
             y + 100,
-            "Marca",
-            get_brand(self.selected_brand).display_name,
+            "Set",
+            self.selected_set_name[:28],
         )
         y += 148
 
@@ -1276,8 +1364,8 @@ class GameScreen:
         )
 
         footer = (
-            "Mira mouse/←→ • Potenza rotella/↑↓ • SPAZIO lancia • "
-            "P rinuncia • M medical TO • T technical TO • ESC menu"
+            f"Controllo {self.aim_mode.upper()} • mouse/←→ • rotella/↑↓ • "
+            "SPAZIO lancia • P rinuncia • M/T timeout • ESC menu"
         )
         self.screen.blit(
             self.font_small.render(
