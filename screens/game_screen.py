@@ -32,6 +32,7 @@ from game.official_rules import (
 from game.measurement import measure_balls, needs_precision_measurement
 from game.physics import PhysicsEngine
 from game.player_profile import load_profile, save_profile
+from game.replay import ReplayRecorder, ShotReplay
 from game.shot_simulator import ShotSimulator
 from game.store_catalog import (
     approximate_profile_key,
@@ -56,6 +57,7 @@ class GameScreen:
     PENALTY_ROLLING = "penalty_rolling"
     AI_THINKING_PENALTY = "ai_thinking_penalty"
     TIMEOUT = "timeout"
+    REPLAY = "replay"
 
     def __init__(
         self,
@@ -79,6 +81,11 @@ class GameScreen:
         self.current_shot_owner: str | None = None
         self.current_shot_ball_collision_start = 0
         self.current_shot_jack_hit_start = 0
+        self.replay_recorder = ReplayRecorder(capture_fps=30.0)
+        self.last_replay: ShotReplay | None = None
+        self.replay_return_state = self.READY
+        self.replay_index = 0
+        self.replay_elapsed = 0.0
 
         self.font_title = pygame.font.SysFont("arial", 30, bold=True)
         self.font_big = pygame.font.SysFont("arial", 21, bold=True)
@@ -220,6 +227,15 @@ class GameScreen:
                         self.angle = 0.0
             return
 
+        if self.state == self.REPLAY:
+            if event.type == pygame.KEYDOWN and event.key in (
+                pygame.K_v,
+                pygame.K_SPACE,
+                pygame.K_RETURN,
+            ):
+                self._stop_replay()
+            return
+
         if self.state == self.COIN_CHOICE:
             if event.key == pygame.K_r:
                 self._choose_colour("red")
@@ -233,6 +249,10 @@ class GameScreen:
             elif event.key == pygame.K_f:
                 self.match.forfeit(self.human_key)
                 self.state = self.MATCH_RESULT
+            return
+
+        if event.key == pygame.K_v and self.last_replay is not None:
+            self._start_replay()
             return
 
         if event.key == pygame.K_z:
@@ -307,6 +327,10 @@ class GameScreen:
             self._change_power(-self.gameplay["power_step"])
 
     def update(self, dt: float) -> None:
+        if self.state == self.REPLAY:
+            self._update_replay(dt)
+            return
+
         if self.state == self.COIN_CHOICE:
             return
 
@@ -380,8 +404,11 @@ class GameScreen:
         self.field.draw(self.screen)
         self._draw_best_distance_lines()
 
-        for ball in self.match.all_balls:
-            ball.draw(self.screen)
+        if self.state == self.REPLAY:
+            self._draw_replay_frame()
+        else:
+            for ball in self.match.all_balls:
+                ball.draw(self.screen)
 
         if self.state not in (
             self.WARMUP,
@@ -389,6 +416,7 @@ class GameScreen:
             self.PENALTY_READY,
             self.AI_THINKING_PENALTY,
             self.PENALTY_ROLLING,
+            self.REPLAY,
         ):
             self.jack.draw(self.screen)
 
@@ -709,6 +737,10 @@ class GameScreen:
         self.current_shot_jack_hit_start = self.jack_hits
         self.match.register_throw(ball)
         self.last_launched_ball = ball
+        self.replay_recorder.start(
+            self.match.all_balls,
+            self.jack,
+        )
         self.active_ball = None
         self.state = self.ROLLING
 
@@ -769,6 +801,11 @@ class GameScreen:
             dt,
             self.field.playable_bounds,
         )
+        self.replay_recorder.capture(
+            self.match.all_balls,
+            self.jack,
+            dt,
+        )
         self.ball_collisions += report.ball_collisions
         self.jack_hits += report.jack_hits
 
@@ -809,6 +846,19 @@ class GameScreen:
 
         if thrower is not None and self.match.time_remaining[thrower] <= 0.0:
             self.match.expire_side_time(thrower)
+
+        self.replay_recorder.capture(
+            self.match.all_balls,
+            self.jack,
+            dt,
+            force=True,
+        )
+        replay = self.replay_recorder.finish(
+            self.match.all_balls,
+            self.jack,
+        )
+        if replay.available:
+            self.last_replay = replay
 
         self._record_completed_shot(ball, thrower)
         self.last_launched_ball = None
@@ -1026,6 +1076,91 @@ class GameScreen:
             self._finish_end()
         else:
             self._prepare_coloured_turn()
+
+    def _start_replay(self) -> None:
+        if self.last_replay is None or not self.last_replay.available:
+            return
+        self.replay_return_state = self.state
+        self.replay_index = 0
+        self.replay_elapsed = 0.0
+        self.state = self.REPLAY
+
+    def _stop_replay(self) -> None:
+        self.state = self.replay_return_state
+        self.replay_index = 0
+        self.replay_elapsed = 0.0
+
+    def _update_replay(self, dt: float) -> None:
+        replay = self.last_replay
+        if replay is None or not replay.available:
+            self._stop_replay()
+            return
+
+        self.replay_elapsed += max(0.0, dt)
+        frame_duration = 1.0 / max(1.0, replay.capture_fps * 0.5)
+
+        while self.replay_elapsed >= frame_duration:
+            self.replay_elapsed -= frame_duration
+            self.replay_index += 1
+            if self.replay_index >= len(replay.frames):
+                self.replay_index = len(replay.frames) - 1
+                self._stop_replay()
+                return
+
+    def _draw_replay_frame(self) -> None:
+        replay = self.last_replay
+        if replay is None or not replay.frames:
+            return
+
+        frame = replay.frames[
+            max(0, min(self.replay_index, len(replay.frames) - 1))
+        ]
+
+        for ball in frame.balls:
+            radius = max(ball.radius, 4)
+            center = (round(ball.x), round(ball.y))
+            pygame.draw.circle(
+                self.screen,
+                ball.color,
+                center,
+                radius,
+            )
+            pygame.draw.circle(
+                self.screen,
+                (245, 245, 245),
+                center,
+                radius,
+                1,
+            )
+
+        jack_center = (round(frame.jack_x), round(frame.jack_y))
+        jack_radius = max(frame.jack_radius, 4)
+        pygame.draw.circle(
+            self.screen,
+            (248, 248, 242),
+            jack_center,
+            jack_radius,
+        )
+        pygame.draw.circle(
+            self.screen,
+            (105, 105, 105),
+            jack_center,
+            jack_radius,
+            1,
+        )
+
+        label = self.font_big.render(
+            "REPLAY 0.5×",
+            True,
+            tuple(self.colors["accent"]),
+        )
+        self.screen.blit(
+            label,
+            (
+                self.field.rect.left + 10,
+                self.field.rect.bottom - 34,
+            ),
+        )
 
     def _record_completed_shot(
         self,
@@ -1518,7 +1653,7 @@ class GameScreen:
 
         footer = (
             f"Controllo {self.aim_mode.upper()} • mouse/←→ • rotella/↑↓ • "
-            "SPAZIO lancia • P rinuncia • M/T timeout • ESC menu"
+            "SPAZIO lancia • V replay • Z misura • P rinuncia • ESC menu"
         )
         self.screen.blit(
             self.font_small.render(
@@ -1530,6 +1665,8 @@ class GameScreen:
         )
 
     def _status_label(self) -> str:
+        if self.state == self.REPLAY:
+            return "REPLAY 0.5×"
         if self.state == self.TIMEOUT:
             return "TIME OUT"
         if self.state == self.COIN_CHOICE:
