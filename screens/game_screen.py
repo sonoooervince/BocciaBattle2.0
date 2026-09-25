@@ -170,6 +170,8 @@ class GameScreen:
             get_real_set(self.selected_set_id).model,
         )
         self.target_marker: pygame.Vector2 | None = None
+        self.human_available_slots = list(range(6))
+        self.selected_loadout_slot = 0
 
         self.angle = 0.0
         self.power = 55.0
@@ -309,12 +311,13 @@ class GameScreen:
             pygame.K_3,
             pygame.K_4,
             pygame.K_5,
+            pygame.K_6,
         ):
-            self._select_boccia_type(event.key - pygame.K_1)
+            self._select_loadout_slot(event.key - pygame.K_1)
         elif event.key == pygame.K_q:
-            self._cycle_boccia_type(-1)
+            self._cycle_loadout_slot(-1)
         elif event.key == pygame.K_e:
-            self._cycle_boccia_type(1)
+            self._cycle_loadout_slot(1)
         elif event.key == pygame.K_c:
             self.angle = 0.0
         elif event.key in (pygame.K_LEFT, pygame.K_a):
@@ -615,6 +618,13 @@ class GameScreen:
             self.ai_think_timer = self.gameplay.get("ai_think_time", 0.9)
             self.state = self.AI_THINKING
             return
+
+        if (
+            self.human_available_slots
+            and self.selected_loadout_slot not in self.human_available_slots
+        ):
+            self.selected_loadout_slot = self.human_available_slots[0]
+
         self.state = self.READY
         self.active_ball = self._make_ball(player.key)
 
