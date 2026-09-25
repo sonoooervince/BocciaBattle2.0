@@ -46,11 +46,12 @@ class Jack:
 
     def draw(self, surface: pygame.Surface) -> None:
         center = (round(self.position.x), round(self.position.y))
+        draw_radius = max(self.radius, 6)
         pygame.draw.circle(
             surface,
             (25, 25, 25),
             (center[0] + 2, center[1] + 2),
-            self.radius,
+            draw_radius,
         )
-        pygame.draw.circle(surface, (248, 248, 242), center, self.radius)
-        pygame.draw.circle(surface, (105, 105, 105), center, self.radius, 2)
+        pygame.draw.circle(surface, (248, 248, 242), center, draw_radius)
+        pygame.draw.circle(surface, (105, 105, 105), center, draw_radius, 1)

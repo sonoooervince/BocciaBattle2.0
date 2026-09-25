@@ -292,13 +292,24 @@ class MatchController:
             return "red" if red_count > blue_count else "blue"
         return "red" if red_distance < blue_distance else "blue"
 
-    def choose_next_turn(self, jack_position: pygame.Vector2) -> str | None:
+    def choose_next_turn(
+        self,
+        jack_position: pygame.Vector2,
+        jack_knocker_if_empty: str | None = None,
+    ) -> str | None:
         red = self.players["red"]
         blue = self.players["blue"]
 
         if red.remaining <= 0 and blue.remaining <= 0:
             self.current_key = None
             return None
+
+        if not self.all_balls and jack_knocker_if_empty in self.PLAYER_ORDER:
+            candidate = jack_knocker_if_empty
+            if self.players[candidate].remaining <= 0:
+                candidate = other_side(candidate)
+            if self.players[candidate].remaining > 0:
+                return self._set_current(candidate)
 
         if self.opening_side is not None:
             opener = self.opening_side

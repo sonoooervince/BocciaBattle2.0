@@ -11,10 +11,10 @@
     "height": 750
   },
   "gameplay": {
-    "boccia_radius": 17,
-    "jack_radius": 11,
+    "boccia_radius": 3,
+    "jack_radius": 3,
     "boccia_mass": 1,
-    "jack_mass": 0.9,
+    "jack_mass": 1,
     "balls_per_player": 6,
     "min_power": 10,
     "max_power": 100,
@@ -49,16 +49,60 @@
     "max_substeps": 12
   },
   "colors": {
-    "background": [19, 24, 30],
-    "panel": [27, 34, 42],
-    "panel_border": [54, 66, 78],
-    "text_primary": [243, 246, 248],
-    "text_secondary": [170, 182, 193],
-    "accent": [250, 210, 90],
-    "red_ball": [206, 50, 58],
-    "blue_ball": [48, 112, 204],
-    "aim": [250, 210, 90],
-    "aim_soft": [255, 232, 150],
-    "power": [235, 113, 64]
+    "background": [
+      19,
+      24,
+      30
+    ],
+    "panel": [
+      27,
+      34,
+      42
+    ],
+    "panel_border": [
+      54,
+      66,
+      78
+    ],
+    "text_primary": [
+      243,
+      246,
+      248
+    ],
+    "text_secondary": [
+      170,
+      182,
+      193
+    ],
+    "accent": [
+      250,
+      210,
+      90
+    ],
+    "red_ball": [
+      206,
+      50,
+      58
+    ],
+    "blue_ball": [
+      48,
+      112,
+      204
+    ],
+    "aim": [
+      250,
+      210,
+      90
+    ],
+    "aim_soft": [
+      255,
+      232,
+      150
+    ],
+    "power": [
+      235,
+      113,
+      64
+    ]
   }
 }

@@ -360,21 +360,6 @@ class GameScreen:
                 self._clock(self.between_ends_remaining),
                 "INVIO quando sei pronto",
             )
-        elif self.state in (
-            self.PENALTY_READY,
-            self.AI_THINKING_PENALTY,
-            self.PENALTY_ROLLING,
-        ):
-            side = self.match.current_key
-            side_name = (
-                self.match.player(side).name if side is not None else "—"
-            )
-            self.results.draw_message(
-                "PENALTY BALL",
-                f"Tiro di {side_name}",
-                self._clock(self.penalty_time_remaining),
-                "La boccia deve fermarsi interamente nel quadrato 35×35 cm",
-            )
         elif self.state == self.MATCH_RESULT:
             winner_key = self.match.winner
             if winner_key is not None:
@@ -661,6 +646,7 @@ class GameScreen:
 
     def _update_coloured_roll(self, dt: float) -> None:
         thrower = self.match.last_throw_key
+        jack_replaced = False
         report = self.physics.step(
             self.match.all_balls,
             self.jack,
@@ -690,6 +676,7 @@ class GameScreen:
             )
             self.jack.velocity.update(0, 0)
             self.jack.has_entered_playing_area = True
+            jack_replaced = True
             self.referee_message = "Jack riposizionato sulla croce"
 
         if not self.physics.is_settled(self.match.all_balls, self.jack):
@@ -708,7 +695,14 @@ class GameScreen:
             self.match.expire_side_time(thrower)
 
         self.last_launched_ball = None
-        next_key = self.match.choose_next_turn(self.jack.position)
+        next_key = self.match.choose_next_turn(
+            self.jack.position,
+            jack_knocker_if_empty=(
+                thrower
+                if jack_replaced and not self.match.all_balls
+                else None
+            ),
+        )
         if next_key is None:
             self._finish_end()
         else:
@@ -935,21 +929,27 @@ class GameScreen:
         return self.field.launch_point_for(key)
 
     def _select_boccia_type(self, index: int) -> None:
-        if self.state != self.READY:
+        if self.state not in (self.READY, self.PENALTY_READY):
             return
         if not (0 <= index < len(BOCCIA_PROFILES)):
             return
         self.selected_boccia_type = BOCCIA_PROFILES[index].key
-        self.active_ball = self._make_ball(self.human_key)
+        if self.state == self.PENALTY_READY:
+            self.penalty_ball = self._make_ball(self.human_key)
+        else:
+            self.active_ball = self._make_ball(self.human_key)
 
     def _cycle_boccia_type(self, direction: int) -> None:
-        if self.state != self.READY:
+        if self.state not in (self.READY, self.PENALTY_READY):
             return
         self.selected_boccia_type = cycle_boccia_profile(
             self.selected_boccia_type,
             direction,
         ).key
-        self.active_ball = self._make_ball(self.human_key)
+        if self.state == self.PENALTY_READY:
+            self.penalty_ball = self._make_ball(self.human_key)
+        else:
+            self.active_ball = self._make_ball(self.human_key)
 
     def _continuous_keyboard_input(self, dt: float) -> None:
         if not self._human_can_aim():
@@ -1197,7 +1197,7 @@ class GameScreen:
             self.AI_THINKING_PENALTY,
             self.PENALTY_ROLLING,
         ):
-            return "PENALTY BALL"
+            return f"PENALTY BALL • {self._clock(self.penalty_time_remaining)}"
         if self.state == self.READY:
             return "PREPARA IL TIRO"
         if self.state == self.ROLLING:

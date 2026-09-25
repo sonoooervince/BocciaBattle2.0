@@ -69,19 +69,20 @@ class Boccia:
 
     def draw(self, surface: pygame.Surface, selected: bool = False) -> None:
         center = (round(self.position.x), round(self.position.y))
-        shadow_offset = max(2, self.radius // 5)
+        draw_radius = max(self.radius, 6)
+        shadow_offset = 2
         shadow = (center[0] + shadow_offset, center[1] + shadow_offset)
-        pygame.draw.circle(surface, (24, 24, 24), shadow, self.radius)
-        pygame.draw.circle(surface, self.color, center, self.radius)
-        pygame.draw.circle(surface, (245, 245, 245), center, self.radius, 2)
+        pygame.draw.circle(surface, (24, 24, 24), shadow, draw_radius)
+        pygame.draw.circle(surface, self.color, center, draw_radius)
+        pygame.draw.circle(surface, (245, 245, 245), center, draw_radius, 1)
 
         highlight_color = tuple(
             min(255, channel + 80) for channel in self.color
         )
-        highlight_radius = max(2, self.radius // 4)
+        highlight_radius = 2
         highlight = (
-            center[0] - self.radius // 3,
-            center[1] - self.radius // 3,
+            center[0] - 2,
+            center[1] - 2,
         )
         pygame.draw.circle(
             surface,
@@ -94,6 +95,6 @@ class Boccia:
                 surface,
                 (250, 215, 92),
                 center,
-                self.radius + 7,
+                draw_radius + 4,
                 2,
             )
