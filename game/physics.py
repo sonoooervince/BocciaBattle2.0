@@ -104,7 +104,11 @@ class PhysicsEngine:
         if speed <= 0.0:
             return
 
-        new_speed = max(0.0, speed - self.friction_deceleration * dt)
+        friction_multiplier = getattr(body, "friction_multiplier", 1.0)
+        new_speed = max(
+            0.0,
+            speed - self.friction_deceleration * friction_multiplier * dt,
+        )
         if new_speed <= 0.0:
             body.velocity.update(0, 0)
         else:
@@ -181,8 +185,22 @@ class PhysicsEngine:
         if velocity_along_normal >= 0.0:
             return False
 
+        first_restitution = getattr(
+            first,
+            "collision_restitution",
+            self.collision_restitution,
+        )
+        second_restitution = getattr(
+            second,
+            "collision_restitution",
+            self.collision_restitution,
+        )
+        effective_restitution = (
+            first_restitution + second_restitution
+        ) / 2.0
+
         impulse_magnitude = (
-            -(1.0 + self.collision_restitution)
+            -(1.0 + effective_restitution)
             * velocity_along_normal
             / inverse_mass_sum
         )
