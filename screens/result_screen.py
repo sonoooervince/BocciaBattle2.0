@@ -9,8 +9,6 @@ from game.tournament import TournamentProgress
 
 
 class ResultScreen:
-    """Overlay riutilizzabile per risultati di end, partita e torneo."""
-
     def __init__(
         self,
         screen: pygame.Surface,
@@ -31,34 +29,33 @@ class ResultScreen:
         winner_name: str | None,
         is_tiebreak: bool,
     ) -> None:
+        del winner_name
         title = (
-            "TIE-BREAK COMPLETATO"
+            f"TIE-BREAK {max(1, end_number - 4)} COMPLETATO"
             if is_tiebreak
             else f"END {end_number} COMPLETATO"
         )
-
-        if score.winner is None:
-            message = "End senza punti"
-            points_text = "0 - 0"
+        if score.red_points == score.blue_points:
+            message = "Punteggio in parità"
+        elif score.red_points > score.blue_points:
+            message = "Segna il ROSSO"
         else:
-            message = f"{winner_name} segna {score.points} punto"
-            if score.points != 1:
-                message += "i"
-            points_text = (
-                f"{score.points} - 0"
-                if score.winner == "red"
-                else f"0 - {score.points}"
-            )
+            message = "Segna il BLU"
 
+        secondary = (
+            "Il tie-break decide solo il vincitore"
+            if is_tiebreak
+            else (
+                f"TOTALE  ROSSO {total_scores['red']}  •  "
+                f"BLU {total_scores['blue']}"
+            )
+        )
         self._draw_overlay(
             title=title,
             message=message,
-            primary_value=points_text,
-            secondary_value=(
-                f"TOTALE  ROSSO {total_scores['red']}  •  "
-                f"BLU {total_scores['blue']}"
-            ),
-            hint="INVIO / SPAZIO / N  →  prossimo end",
+            primary_value=f"{score.red_points}  -  {score.blue_points}",
+            secondary_value=secondary,
+            hint="INVIO / SPAZIO / N  →  continua",
         )
 
     def draw_match_result(
@@ -84,7 +81,6 @@ class ResultScreen:
         total_scores: dict[str, int],
     ) -> None:
         score_text = f"{total_scores['red']}  -  {total_scores['blue']}"
-
         if progress.status == "advanced":
             title = f"ROUND {progress.completed_round} SUPERATO"
             message = f"Battuta IA livello {progress.bot_level}"
@@ -103,12 +99,26 @@ class ResultScreen:
             message = f"Vince IA livello {progress.bot_level}"
             secondary = "Il torneo termina qui"
             hint = "INVIO / SPAZIO  →  torna al menu"
-
         self._draw_overlay(
             title=title,
             message=message,
             primary_value=score_text,
             secondary_value=secondary,
+            hint=hint,
+        )
+
+    def draw_message(
+        self,
+        title: str,
+        message: str,
+        detail: str,
+        hint: str,
+    ) -> None:
+        self._draw_overlay(
+            title=title,
+            message=message,
+            primary_value=detail,
+            secondary_value="",
             hint=hint,
         )
 
@@ -123,16 +133,12 @@ class ResultScreen:
         overlay = pygame.Surface(self.screen.get_size(), pygame.SRCALPHA)
         overlay.fill((7, 10, 14, 188))
         self.screen.blit(overlay, (0, 0))
-
-        width = 620
-        height = 330
         rect = pygame.Rect(
-            (self.screen.get_width() - width) // 2,
-            (self.screen.get_height() - height) // 2,
-            width,
-            height,
+            (self.screen.get_width() - 620) // 2,
+            (self.screen.get_height() - 330) // 2,
+            620,
+            330,
         )
-
         pygame.draw.rect(
             self.screen,
             tuple(self.colors["panel"]),
@@ -146,41 +152,47 @@ class ResultScreen:
             2,
             border_radius=18,
         )
-
-        title_surface = self.font_title.render(
-            title,
-            True,
-            tuple(self.colors["text_primary"]),
+        self._center(
+            self.font_title.render(
+                title,
+                True,
+                tuple(self.colors["text_primary"]),
+            ),
+            rect.centery - 110,
         )
-        self._center(title_surface, rect.centery - 110)
-
-        message_surface = self.font_big.render(
-            message,
-            True,
-            tuple(self.colors["accent"]),
+        self._center(
+            self.font_big.render(
+                message,
+                True,
+                tuple(self.colors["accent"]),
+            ),
+            rect.centery - 48,
         )
-        self._center(message_surface, rect.centery - 48)
-
-        score_surface = self.font_title.render(
-            primary_value,
-            True,
-            tuple(self.colors["text_primary"]),
+        self._center(
+            self.font_title.render(
+                primary_value,
+                True,
+                tuple(self.colors["text_primary"]),
+            ),
+            rect.centery + 12,
         )
-        self._center(score_surface, rect.centery + 12)
-
-        total_surface = self.font.render(
-            secondary_value,
-            True,
-            tuple(self.colors["text_secondary"]),
+        if secondary_value:
+            self._center(
+                self.font.render(
+                    secondary_value,
+                    True,
+                    tuple(self.colors["text_secondary"]),
+                ),
+                rect.centery + 68,
+            )
+        self._center(
+            self.font_small.render(
+                hint,
+                True,
+                tuple(self.colors["text_secondary"]),
+            ),
+            rect.centery + 123,
         )
-        self._center(total_surface, rect.centery + 68)
-
-        hint_surface = self.font_small.render(
-            hint,
-            True,
-            tuple(self.colors["text_secondary"]),
-        )
-        self._center(hint_surface, rect.centery + 123)
 
     def _center(self, surface: pygame.Surface, center_y: int) -> None:
         rect = surface.get_rect(

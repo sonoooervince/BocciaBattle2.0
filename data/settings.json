@@ -15,7 +15,7 @@
     "jack_radius": 11,
     "boccia_mass": 1,
     "jack_mass": 0.9,
-    "balls_per_player": 4,
+    "balls_per_player": 6,
     "min_power": 10,
     "max_power": 100,
     "power_step": 5,
@@ -29,6 +29,7 @@
     "ai_difficulty": "normal",
     "ai_think_time": 0.9,
     "ai_level": 10,
+    "sport_class": "BC2",
     "selected_boccia_type": "medie",
     "selected_brand": "handi_life_sport",
     "show_distance_guides": true,
@@ -36,7 +37,8 @@
   },
   "match": {
     "ends": 4,
-    "tie_tolerance_px": 0.5
+    "tie_tolerance_px": 0.5,
+    "official_rules": true
   },
   "physics": {
     "friction_deceleration": 165,
@@ -47,60 +49,16 @@
     "max_substeps": 12
   },
   "colors": {
-    "background": [
-      19,
-      24,
-      30
-    ],
-    "panel": [
-      27,
-      34,
-      42
-    ],
-    "panel_border": [
-      54,
-      66,
-      78
-    ],
-    "text_primary": [
-      243,
-      246,
-      248
-    ],
-    "text_secondary": [
-      170,
-      182,
-      193
-    ],
-    "accent": [
-      250,
-      210,
-      90
-    ],
-    "red_ball": [
-      206,
-      50,
-      58
-    ],
-    "blue_ball": [
-      48,
-      112,
-      204
-    ],
-    "aim": [
-      250,
-      210,
-      90
-    ],
-    "aim_soft": [
-      255,
-      232,
-      150
-    ],
-    "power": [
-      235,
-      113,
-      64
-    ]
+    "background": [19, 24, 30],
+    "panel": [27, 34, 42],
+    "panel_border": [54, 66, 78],
+    "text_primary": [243, 246, 248],
+    "text_secondary": [170, 182, 193],
+    "accent": [250, 210, 90],
+    "red_ball": [206, 50, 58],
+    "blue_ball": [48, 112, 204],
+    "aim": [250, 210, 90],
+    "aim_soft": [255, 232, 150],
+    "power": [235, 113, 64]
   }
 }
