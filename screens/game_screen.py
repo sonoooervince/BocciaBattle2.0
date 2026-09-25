@@ -19,6 +19,7 @@ from game.jack import Jack
 from game.match import MatchController
 from game.official_rules import (
     BETWEEN_ENDS_SECONDS,
+    PENALTY_BALL_SECONDS,
     RULES_VERSION,
     WARMUP_SECONDS,
     get_event_format,
@@ -29,6 +30,7 @@ from screens.result_screen import ResultScreen
 
 
 class GameScreen:
+    COIN_CHOICE = "coin_choice"
     WARMUP = "warmup"
     JACK_READY = "jack_ready"
     JACK_ROLLING = "jack_rolling"
@@ -39,6 +41,9 @@ class GameScreen:
     MATCH_RESULT = "match_result"
     AI_THINKING = "ai_thinking"
     AI_THINKING_JACK = "ai_thinking_jack"
+    PENALTY_READY = "penalty_ready"
+    PENALTY_ROLLING = "penalty_rolling"
+    AI_THINKING_PENALTY = "ai_thinking_penalty"
 
     def __init__(self, screen: pygame.Surface, settings: dict[str, Any]) -> None:
         self.screen = screen
@@ -79,16 +84,14 @@ class GameScreen:
         self.event_format = get_event_format("individual", self.sport_class)
 
         self.coin_toss_winner = self.random.choice(("human", "computer"))
-        # Strategy choice: whoever wins the toss chooses red.
-        self.human_key = (
-            "red" if self.coin_toss_winner == "human" else "blue"
-        )
-        self.ai_key = other_side(self.human_key)
-        self.coin_toss_text = (
-            "TU hai vinto il sorteggio e scelto ROSSO"
-            if self.coin_toss_winner == "human"
-            else "COMPUTER ha vinto il sorteggio e scelto ROSSO"
-        )
+        if self.coin_toss_winner == "human":
+            self.human_key = "red"
+            self.ai_key = "blue"
+            self.coin_toss_text = "Hai vinto il sorteggio: scegli ROSSO o BLU"
+        else:
+            self.human_key = "blue"
+            self.ai_key = "red"
+            self.coin_toss_text = "COMPUTER vince il sorteggio e sceglie ROSSO"
 
         self.match = self._new_match_controller()
         self.ai = BocciaAI(
@@ -116,10 +119,24 @@ class GameScreen:
         self.power = 55.0
         self.active_ball: Boccia | None = None
         self.last_launched_ball: Boccia | None = None
+        self.penalty_ball: Boccia | None = None
+        self.penalty_dummy_jack = Jack(
+            pygame.Vector2(-1000, -1000),
+            radius=self.gameplay["jack_radius"],
+            mass=self.gameplay["jack_mass"],
+        )
+        self.penalty_time_remaining = 0.0
+        self.penalty_announced: set[int] = set()
+        self.clock_announced = {"red": set(), "blue": set()}
+        self.between_ends_announced = False
         self.jack = self._new_jack_at_cross()
         self.ai_think_timer = 0.0
         self.ai_plan = None
-        self.state = self.WARMUP
+        self.state = (
+            self.COIN_CHOICE
+            if self.coin_toss_winner == "human"
+            else self.WARMUP
+        )
         self.warmup_remaining = float(WARMUP_SECONDS)
         self.between_ends_remaining = 0.0
         self.referee_message = self.coin_toss_text
@@ -145,6 +162,13 @@ class GameScreen:
                         self._launch_human()
                     elif event.button == 3:
                         self.angle = 0.0
+            return
+
+        if self.state == self.COIN_CHOICE:
+            if event.key == pygame.K_r:
+                self._choose_colour("red")
+            elif event.key == pygame.K_b:
+                self._choose_colour("blue")
             return
 
         if event.key == pygame.K_r and self.state != self.WARMUP:
@@ -210,6 +234,9 @@ class GameScreen:
             self._change_power(-self.gameplay["power_step"])
 
     def update(self, dt: float) -> None:
+        if self.state == self.COIN_CHOICE:
+            return
+
         if self.state == self.WARMUP:
             self.warmup_remaining = max(
                 0.0,
@@ -220,12 +247,28 @@ class GameScreen:
             return
 
         if self.state == self.BETWEEN_ENDS:
+            previous = self.between_ends_remaining
             self.between_ends_remaining = max(
                 0.0,
                 self.between_ends_remaining - dt,
             )
+            if (
+                previous > 15.0 >= self.between_ends_remaining
+                and not self.between_ends_announced
+            ):
+                self.between_ends_announced = True
+                self.referee_message = "15 secondi!"
             if self.between_ends_remaining <= 0.0:
+                self.referee_message = "Time!"
                 self._start_current_end()
+            return
+
+        if self.state in (
+            self.PENALTY_READY,
+            self.AI_THINKING_PENALTY,
+            self.PENALTY_ROLLING,
+        ):
+            self._update_penalty_phase(dt)
             return
 
         self._consume_official_clock(dt)
@@ -258,17 +301,41 @@ class GameScreen:
         for ball in self.match.all_balls:
             ball.draw(self.screen)
 
-        if self.state != self.WARMUP:
+        if self.state not in (
+            self.WARMUP,
+            self.COIN_CHOICE,
+            self.PENALTY_READY,
+            self.AI_THINKING_PENALTY,
+            self.PENALTY_ROLLING,
+        ):
             self.jack.draw(self.screen)
 
         if self._human_can_aim():
             self._draw_aim_indicator()
             if self.state == self.READY and self.active_ball is not None:
                 self.active_ball.draw(self.screen, selected=True)
+            elif (
+                self.state == self.PENALTY_READY
+                and self.penalty_ball is not None
+            ):
+                self.penalty_ball.draw(self.screen, selected=True)
+
+        if (
+            self.state == self.PENALTY_ROLLING
+            and self.penalty_ball is not None
+        ):
+            self.penalty_ball.draw(self.screen)
 
         self._draw_hud()
 
-        if self.state == self.WARMUP:
+        if self.state == self.COIN_CHOICE:
+            self.results.draw_message(
+                "SORTEGGIO",
+                "Hai vinto",
+                "R = ROSSO    B = BLU",
+                "Scegli il colore con cui giocare",
+            )
+        elif self.state == self.WARMUP:
             self.results.draw_message(
                 "RISCALDAMENTO",
                 "2 minuti regolamentari",
@@ -292,6 +359,21 @@ class GameScreen:
                 "Massimo un minuto",
                 self._clock(self.between_ends_remaining),
                 "INVIO quando sei pronto",
+            )
+        elif self.state in (
+            self.PENALTY_READY,
+            self.AI_THINKING_PENALTY,
+            self.PENALTY_ROLLING,
+        ):
+            side = self.match.current_key
+            side_name = (
+                self.match.player(side).name if side is not None else "—"
+            )
+            self.results.draw_message(
+                "PENALTY BALL",
+                f"Tiro di {side_name}",
+                self._clock(self.penalty_time_remaining),
+                "La boccia deve fermarsi interamente nel quadrato 35×35 cm",
             )
         elif self.state == self.MATCH_RESULT:
             winner_key = self.match.winner
@@ -330,21 +412,34 @@ class GameScreen:
 
     def _restart_match(self) -> None:
         self.coin_toss_winner = self.random.choice(("human", "computer"))
-        self.human_key = (
-            "red" if self.coin_toss_winner == "human" else "blue"
-        )
-        self.ai_key = other_side(self.human_key)
-        self.coin_toss_text = (
-            "TU hai vinto il sorteggio e scelto ROSSO"
-            if self.coin_toss_winner == "human"
-            else "COMPUTER ha vinto il sorteggio e scelto ROSSO"
-        )
+        if self.coin_toss_winner == "human":
+            self.human_key = "red"
+            self.ai_key = "blue"
+            self.coin_toss_text = "Hai vinto il sorteggio: scegli ROSSO o BLU"
+            self.state = self.COIN_CHOICE
+        else:
+            self.human_key = "blue"
+            self.ai_key = "red"
+            self.coin_toss_text = "COMPUTER vince il sorteggio e sceglie ROSSO"
+            self.state = self.WARMUP
         self.match = self._new_match_controller()
         self.jack = self._new_jack_at_cross()
-        self.state = self.WARMUP
         self.warmup_remaining = float(WARMUP_SECONDS)
         self.referee_message = self.coin_toss_text
+        self.penalty_ball = None
+        self.clock_announced = {"red": set(), "blue": set()}
         self._reset_end_counters()
+
+    def _choose_colour(self, key: str) -> None:
+        self.human_key = key
+        self.ai_key = other_side(key)
+        self.coin_toss_text = (
+            f"Hai scelto {'ROSSO' if key == 'red' else 'BLU'}"
+        )
+        self.match = self._new_match_controller()
+        self.referee_message = self.coin_toss_text
+        self.warmup_remaining = float(WARMUP_SECONDS)
+        self.state = self.WARMUP
 
     def _start_match_after_warmup(self) -> None:
         self._start_current_end()
@@ -388,6 +483,7 @@ class GameScreen:
             first_tiebreak_key=first_tiebreak_key,
         )
         self.between_ends_remaining = float(BETWEEN_ENDS_SECONDS)
+        self.between_ends_announced = False
         self.state = self.BETWEEN_ENDS
 
     def _prepare_jack_turn(self) -> None:
@@ -434,6 +530,17 @@ class GameScreen:
 
     def _launch_human(self) -> None:
         if self.match.current_key != self.human_key:
+            return
+        if self.state == self.PENALTY_READY:
+            if self.penalty_ball is None:
+                return
+            self.penalty_ball.launch(
+                self.angle,
+                self.power,
+                self.gameplay["min_launch_speed"],
+                self.gameplay["max_launch_speed"],
+            )
+            self.state = self.PENALTY_ROLLING
             return
         if self.state == self.JACK_READY:
             self.jack.launch(
@@ -608,12 +715,138 @@ class GameScreen:
             self._prepare_coloured_turn()
 
     def _finish_end(self) -> None:
+        if self.match.has_pending_penalty_balls:
+            self._start_penalty_phase()
+            return
+        self._finalize_end_score()
+
+    def _finalize_end_score(self) -> None:
         self.match.finish_end(self.jack.position)
         self.state = (
             self.MATCH_RESULT
             if self.match.match_over
             else self.END_RESULT
         )
+
+    def _start_penalty_phase(self) -> None:
+        key = self.match.begin_penalty_phase(self.jack.position)
+        if key is None:
+            self._finalize_end_score()
+            return
+
+        self.match.player("red").balls.clear()
+        self.match.player("blue").balls.clear()
+        self.last_launched_ball = None
+        self.active_ball = None
+        self.penalty_ball = None
+        self.referee_message = "One minute! Penalty ball"
+        self._prepare_penalty_attempt()
+
+    def _prepare_penalty_attempt(self) -> None:
+        key = self.match.current_key
+        if key is None:
+            self.penalty_ball = None
+            self._finalize_end_score()
+            return
+
+        self.angle = 0.0
+        self.power = 45.0
+        self.penalty_time_remaining = float(PENALTY_BALL_SECONDS)
+        self.penalty_announced = set()
+        self.penalty_ball = self._make_ball(
+            key,
+            ai=(key == self.ai_key),
+        )
+        self.referee_message = (
+            f"One minute! Penalty ball a {self.match.player(key).name}"
+        )
+        if key == self.ai_key:
+            self.ai_think_timer = self.gameplay.get("ai_think_time", 0.9)
+            self.state = self.AI_THINKING_PENALTY
+        else:
+            self.state = self.PENALTY_READY
+
+    def _launch_ai_penalty(self) -> None:
+        key = self.match.current_key
+        if key != self.ai_key or self.penalty_ball is None:
+            return
+        plan = self.ai.choose_jack_shot(
+            self.field.launch_point_for(key),
+            self.field.cross_position,
+        )
+        self.ai_plan = plan
+        self.angle = plan.angle
+        self.power = plan.power
+        self.penalty_ball.launch(
+            plan.angle,
+            plan.power,
+            self.gameplay["min_launch_speed"],
+            self.gameplay["max_launch_speed"],
+        )
+        self.state = self.PENALTY_ROLLING
+
+    def _update_penalty_phase(self, dt: float) -> None:
+        if self.state in (
+            self.PENALTY_READY,
+            self.AI_THINKING_PENALTY,
+        ):
+            previous = self.penalty_time_remaining
+            self.penalty_time_remaining = max(
+                0.0,
+                self.penalty_time_remaining - dt,
+            )
+            self._announce_countdown(
+                previous,
+                self.penalty_time_remaining,
+                self.penalty_announced,
+                "Penalty",
+            )
+            if self.penalty_time_remaining <= 0.0:
+                self.referee_message = "Time! Penalty ball non giocata"
+                self._complete_penalty_attempt(False)
+                return
+
+            if self.state == self.AI_THINKING_PENALTY:
+                self.ai_think_timer -= dt
+                if self.ai_think_timer <= 0.0:
+                    self._launch_ai_penalty()
+            return
+
+        if self.state != self.PENALTY_ROLLING or self.penalty_ball is None:
+            return
+
+        self.physics.step(
+            [self.penalty_ball],
+            self.penalty_dummy_jack,
+            dt,
+            self.field.playable_bounds,
+        )
+        if self.field.touches_exterior_boundary(self.penalty_ball):
+            self.penalty_ball.velocity.update(0, 0)
+            self._complete_penalty_attempt(False)
+            return
+        if self.penalty_ball.is_moving:
+            return
+
+        self._complete_penalty_attempt(
+            self.field.ball_scores_penalty(self.penalty_ball)
+        )
+
+    def _complete_penalty_attempt(self, scored: bool) -> None:
+        key = self.match.current_key
+        if key is None:
+            return
+        self.match.record_penalty_attempt(key, scored)
+        self.referee_message = (
+            "Penalty point!"
+            if scored
+            else "Penalty ball: nessun punto"
+        )
+        self.penalty_ball = None
+        if self.match.current_key is None:
+            self._finalize_end_score()
+        else:
+            self._prepare_penalty_attempt()
 
     def _pass_remaining_human_balls(self) -> None:
         self.match.pass_remaining_balls(self.human_key)
@@ -638,7 +871,14 @@ class GameScreen:
         key = self.match.current_key
         if key is None:
             return
+        previous = self.match.time_remaining[key]
         remaining = self.match.consume_time(key, dt)
+        self._announce_countdown(
+            previous,
+            remaining,
+            self.clock_announced[key],
+            self.match.player(key).name,
+        )
         if remaining > 0.0:
             return
         if self.state in (self.JACK_ROLLING, self.ROLLING):
@@ -657,10 +897,37 @@ class GameScreen:
         else:
             self._prepare_coloured_turn()
 
+    def _announce_countdown(
+        self,
+        previous: float,
+        remaining: float,
+        announced: set[int],
+        prefix: str,
+    ) -> None:
+        labels = {
+            60: "1 minuto",
+            30: "30 secondi",
+            10: "10 secondi",
+        }
+        for threshold in (60, 30, 10):
+            if (
+                previous > threshold >= remaining
+                and threshold not in announced
+            ):
+                announced.add(threshold)
+                self.referee_message = (
+                    f"{prefix}: {labels[threshold]}"
+                )
+                break
+
     def _human_can_aim(self) -> bool:
         return (
             self.match.current_key == self.human_key
-            and self.state in (self.READY, self.JACK_READY)
+            and self.state in (
+                self.READY,
+                self.JACK_READY,
+                self.PENALTY_READY,
+            )
         )
 
     def _current_launch_point(self) -> pygame.Vector2:
@@ -915,6 +1182,8 @@ class GameScreen:
         )
 
     def _status_label(self) -> str:
+        if self.state == self.COIN_CHOICE:
+            return "SORTEGGIO"
         if self.state == self.WARMUP:
             return "RISCALDAMENTO"
         if self.state in (self.JACK_READY, self.AI_THINKING_JACK):
@@ -923,6 +1192,12 @@ class GameScreen:
             return "JACK IN MOVIMENTO"
         if self.state == self.AI_THINKING:
             return "IL COMPUTER STA PENSANDO"
+        if self.state in (
+            self.PENALTY_READY,
+            self.AI_THINKING_PENALTY,
+            self.PENALTY_ROLLING,
+        ):
+            return "PENALTY BALL"
         if self.state == self.READY:
             return "PREPARA IL TIRO"
         if self.state == self.ROLLING:
@@ -942,6 +1217,7 @@ class GameScreen:
         return self.match.player(leader).name
 
     def _reset_end_counters(self) -> None:
+        self.clock_announced = {"red": set(), "blue": set()}
         self.ball_collisions = 0
         self.jack_hits = 0
         self.dead_ball_events = 0
