@@ -28,7 +28,8 @@
     "virtual_field_length_m": 12.5,
     "ai_difficulty": "normal",
     "ai_think_time": 0.9,
-    "ai_level": 10
+    "ai_level": 10,
+    "selected_boccia_type": "medie"
   },
   "match": {
     "ends": 4,
