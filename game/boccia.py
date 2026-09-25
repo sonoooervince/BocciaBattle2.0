@@ -20,6 +20,8 @@ class Boccia:
         mass: float = 1.0,
         boccia_type: str = "medie",
         rolling_seed: int | None = None,
+        set_id: str = "",
+        hardness: str = "",
     ) -> None:
         self.position = pygame.Vector2(position)
         self.velocity = pygame.Vector2(0, 0)
@@ -28,6 +30,8 @@ class Boccia:
         self.owner_key = owner_key
         self.mass = max(0.01, mass)
         self.boccia_profile = get_boccia_profile(boccia_type)
+        self.set_id = set_id
+        self.hardness = hardness
         self.has_entered_playing_area = False
 
         rng = random if rolling_seed is None else random.Random(rolling_seed)
