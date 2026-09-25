@@ -58,6 +58,9 @@ class MatchController:
         }
         self.pending_penalty_balls = {"red": 0, "blue": 0}
         self.scored_penalty_points = {"red": 0, "blue": 0}
+        self.first_penalty_side: str | None = None
+        self.penalty_order: list[str] = []
+        self.base_score_before_penalties: EndScore | None = None
         self.yellow_cards = {"red": 0, "blue": 0}
         self.red_cards = {"red": 0, "blue": 0}
         self._equidistant_active = False
@@ -157,14 +160,75 @@ class MatchController:
         return self.time_remaining[key]
 
     def award_penalty_ball(self, to_key: str, count: int = 1) -> None:
-        self.pending_penalty_balls[to_key] += max(0, int(count))
+        if to_key not in self.PLAYER_ORDER:
+            raise ValueError("Lato non valido per la penalty ball.")
+        amount = max(0, int(count))
+        if amount <= 0:
+            return
+        if self.first_penalty_side is None:
+            self.first_penalty_side = to_key
+        self.pending_penalty_balls[to_key] += amount
 
-    def record_penalty_attempt(self, key: str, scored: bool) -> None:
+    @property
+    def has_pending_penalty_balls(self) -> bool:
+        return any(
+            self.pending_penalty_balls[key] > 0
+            for key in self.PLAYER_ORDER
+        )
+
+    def begin_penalty_phase(
+        self,
+        jack_position: pygame.Vector2,
+    ) -> str | None:
+        if not self.has_pending_penalty_balls:
+            return None
+
+        self.base_score_before_penalties = calculate_end_score(
+            self.all_balls,
+            jack_position,
+            tie_tolerance_px=self.tie_tolerance_px,
+        )
+
+        first = self.first_penalty_side or "red"
+        other = other_side(first)
+        remaining = dict(self.pending_penalty_balls)
+        order: list[str] = []
+        candidate = first
+
+        while remaining["red"] > 0 or remaining["blue"] > 0:
+            if remaining[candidate] > 0:
+                order.append(candidate)
+                remaining[candidate] -= 1
+            elif remaining[other_side(candidate)] > 0:
+                candidate = other_side(candidate)
+                order.append(candidate)
+                remaining[candidate] -= 1
+
+            alternate = other_side(candidate)
+            if remaining[alternate] > 0:
+                candidate = alternate
+            elif remaining[candidate] <= 0:
+                candidate = alternate
+
+        self.penalty_order = order
+        self.current_key = order[0] if order else None
+        return self.current_key
+
+    def record_penalty_attempt(self, key: str, scored: bool) -> str | None:
+        if not self.penalty_order or self.penalty_order[0] != key:
+            raise RuntimeError("Penalty ball giocata fuori sequenza.")
         if self.pending_penalty_balls[key] <= 0:
             raise RuntimeError("Nessuna penalty ball da giocare.")
+
+        self.penalty_order.pop(0)
         self.pending_penalty_balls[key] -= 1
         if scored:
             self.scored_penalty_points[key] += 1
+
+        self.current_key = (
+            self.penalty_order[0] if self.penalty_order else None
+        )
+        return self.current_key
 
     def give_yellow_card(self, key: str) -> None:
         self.yellow_cards[key] += 1
@@ -177,6 +241,12 @@ class MatchController:
 
     def forfeit(self, key: str) -> None:
         self.forfeit_key = key
+        opponent = other_side(key)
+        self.total_scores[key] = 0
+        self.total_scores[opponent] = max(
+            6,
+            self.total_scores[opponent],
+        )
         self.match_over = True
         self.current_key = None
 
@@ -278,12 +348,32 @@ class MatchController:
         return self._set_current(farther)
 
     def finish_end(self, jack_position: pygame.Vector2) -> EndScore:
-        score = calculate_end_score(
-            self.all_balls,
-            jack_position,
-            tie_tolerance_px=self.tie_tolerance_px,
-            penalty_points=self.scored_penalty_points,
-        )
+        if self.has_pending_penalty_balls:
+            raise RuntimeError(
+                "Le penalty ball devono essere completate prima del punteggio."
+            )
+
+        if self.base_score_before_penalties is None:
+            score = calculate_end_score(
+                self.all_balls,
+                jack_position,
+                tie_tolerance_px=self.tie_tolerance_px,
+                penalty_points=self.scored_penalty_points,
+            )
+        else:
+            base = self.base_score_before_penalties
+            score = EndScore(
+                red_points=(
+                    base.red_points + self.scored_penalty_points["red"]
+                ),
+                blue_points=(
+                    base.blue_points + self.scored_penalty_points["blue"]
+                ),
+                red_closest_px=base.red_closest_px,
+                blue_closest_px=base.blue_closest_px,
+                penalty_red=self.scored_penalty_points["red"],
+                penalty_blue=self.scored_penalty_points["blue"],
+            )
         self.last_end_score = score
         self.end_history.append(score)
         self.current_key = None
@@ -384,6 +474,9 @@ class MatchController:
         }
         self.pending_penalty_balls = {"red": 0, "blue": 0}
         self.scored_penalty_points = {"red": 0, "blue": 0}
+        self.first_penalty_side = None
+        self.penalty_order = []
+        self.base_score_before_penalties = None
         self._reset_equidistant()
 
     def _equidistant_counts(

@@ -18,13 +18,13 @@ class SettingsTests(unittest.TestCase):
                 "preferred_brand": "apowatec",
                 "selected_boccia_type": "dura",
                 "ai_level": 999,
-                "match_ends": 99,
+                "sport_class": "BC3",
                 "ai_think_time": 8,
                 "show_distance_guides": False,
             }
         )
         self.assertEqual(values["ai_level"], 50)
-        self.assertEqual(values["match_ends"], 8)
+        self.assertEqual(values["sport_class"], "BC3")
         self.assertEqual(values["ai_think_time"], 2.0)
         self.assertFalse(values["show_distance_guides"])
 
