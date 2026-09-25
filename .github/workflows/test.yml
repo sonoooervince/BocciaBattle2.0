@@ -31,6 +31,7 @@ jobs:
           from game.config import load_settings
           from game.user_settings import apply_user_settings, default_user_settings
           from screens.game_screen import GameScreen
+          from screens.local_game_screen import LocalGameScreen
           from screens.menu import MenuScreen
           from screens.settings_screen import SettingsScreen
           from screens.store_screen import StoreScreen
@@ -52,6 +53,7 @@ jobs:
           screens = [
               MenuScreen(surface, settings),
               GameScreen(surface, settings),
+              LocalGameScreen(surface, settings),
               TournamentScreen(surface, settings),
               TrainingScreen(surface, settings),
               SettingsScreen(surface, settings),

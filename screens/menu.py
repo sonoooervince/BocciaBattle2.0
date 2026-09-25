@@ -31,6 +31,7 @@ class MenuScreen:
 
         self.items = (
             MenuItem("GIOCA VS COMPUTER", "quick"),
+            MenuItem("2 GIOCATORI LOCALI", "local", note="stesso PC • a turni"),
             MenuItem(
                 "TORNEO SETTIMANALE",
                 "tournament",
@@ -107,9 +108,9 @@ class MenuScreen:
 
         self.button_rects = []
         button_width = 520
-        button_height = 62
-        start_y = 220
-        gap = 12
+        button_height = 55
+        start_y = 215
+        gap = 8
 
         for index, item in enumerate(self.items):
             rect = pygame.Rect(
