@@ -37,8 +37,11 @@ class MenuScreen:
                 "tournament",
                 note="7 round • IA livello 5 → 50",
             ),
-            MenuItem("ALLENAMENTO", "training", note="tiri liberi e bersagli"),
+            MenuItem("TUTORIAL", "tutorial", note="impara giocando"),
+            MenuItem("ALLENAMENTO", "training", note="esercizi e bersagli"),
             MenuItem("STORE", "store", note="solo set di bocce reali"),
+            MenuItem("BORSONE", "bag", note="6 bocce • G1 e G2"),
+            MenuItem("STATISTICHE", "stats", note="precisione e rendimento"),
             MenuItem("IMPOSTAZIONI", "settings", note="classe, IA e controllo"),
             MenuItem("ESCI", "quit"),
         )
@@ -109,9 +112,9 @@ class MenuScreen:
 
         self.button_rects = []
         button_width = 520
-        button_height = 55
-        start_y = 215
-        gap = 8
+        button_height = 44
+        start_y = 208
+        gap = 5
 
         for index, item in enumerate(self.items):
             rect = pygame.Rect(
@@ -144,7 +147,7 @@ class MenuScreen:
                 else self.colors["text_secondary"]
             )
             label = self.font_button.render(item.label, True, text_color)
-            self.screen.blit(label, (rect.x + 24, rect.y + 15))
+            self.screen.blit(label, (rect.x + 24, rect.y + 9))
 
             if item.note:
                 note_text = item.note.upper() if not item.enabled else item.note
@@ -159,7 +162,7 @@ class MenuScreen:
                 )
                 self.screen.blit(
                     note,
-                    (rect.right - note.get_width() - 22, rect.y + 28),
+                    (rect.right - note.get_width() - 22, rect.y + 19),
                 )
 
         footer = self.font_small.render(
@@ -173,7 +176,7 @@ class MenuScreen:
         )
 
         version = self.font_small.render(
-            "VERSIONE 0.9.1",
+            "VERSIONE 1.0",
             True,
             tuple(self.colors["accent"]),
         )
